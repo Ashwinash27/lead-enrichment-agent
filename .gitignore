@@ -1,0 +1,10 @@
+.env
+__pycache__/
+venv/
+.venv/
+*.pyc
+
+# Project docs (keep local only)
+CLAUDE.md
+PROJECT_REPORT.md
+TECH_CHOICES.md
