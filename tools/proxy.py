@@ -27,7 +27,17 @@ class ProxyManager:
         proxy = self.get_proxy()
         if proxy is None:
             return None
-        return {"server": proxy}
+        # Playwright needs credentials as separate fields, not embedded in URL
+        from urllib.parse import urlparse
+        parsed = urlparse(proxy)
+        result: dict[str, str] = {
+            "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}",
+        }
+        if parsed.username:
+            result["username"] = parsed.username
+        if parsed.password:
+            result["password"] = parsed.password
+        return result
 
 
 proxy_manager = ProxyManager()

@@ -69,54 +69,50 @@ class PlaywrightTool:
             latency_ms=(time.time() - t0) * 1000,
         )
 
-    _NO_RETRY_PATTERNS = ("ERR_CERT_", "ERR_NAME_NOT_RESOLVED", "ERR_CONNECTION_REFUSED")
-
     async def _scrape_url(self, url: str) -> str | None:
-        for attempt in range(2):
-            browser = None
+        browser = None
+        try:
+            pw = await async_playwright().start()
+            launch_args: dict = {"headless": True}
+            proxy_cfg = proxy_manager.get_playwright_proxy()
+            if proxy_cfg:
+                launch_args["proxy"] = proxy_cfg
+                launch_args["args"] = ["--ignore-certificate-errors"]
+                logger.info(f"Using proxy: {proxy_cfg['server']}")
+            else:
+                logger.info("No proxy configured, connecting directly")
+
+            browser = await pw.chromium.launch(**launch_args)
+            context = await browser.new_context(
+                user_agent=USER_AGENT,
+                ignore_https_errors=True,
+            )
+            page = await context.new_page()
+            await page.goto(
+                url,
+                wait_until="domcontentloaded",
+                timeout=PLAYWRIGHT_TIMEOUT,
+            )
             try:
-                pw = await async_playwright().start()
-                launch_args: dict = {"headless": True}
-                proxy_cfg = proxy_manager.get_playwright_proxy()
-                if proxy_cfg:
-                    launch_args["proxy"] = proxy_cfg
+                await page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                pass  # timeout is fine, page may have long-polling
 
-                browser = await pw.chromium.launch(**launch_args)
-                context = await browser.new_context(
-                    user_agent=USER_AGENT,
-                )
-                page = await context.new_page()
-                await page.goto(
-                    url,
-                    wait_until="domcontentloaded",
-                    timeout=PLAYWRIGHT_TIMEOUT,
-                )
-                try:
-                    await page.wait_for_load_state("networkidle", timeout=5000)
-                except Exception:
-                    pass  # timeout is fine, page may have long-polling
+            text = await page.inner_text("body")
+            text = text.strip()
+            if len(text) > MAX_CHARS:
+                text = text[:MAX_CHARS]
 
-                text = await page.inner_text("body")
-                text = text.strip()
-                if len(text) > MAX_CHARS:
-                    text = text[:MAX_CHARS]
+            header = f"Content from: {url}\n\n"
+            return header + text
 
-                header = f"Content from: {url}\n\n"
-                return header + text
-
-            except Exception as e:
-                err_str = str(e)
-                logger.warning(f"Browser attempt {attempt+1} for {url}: {e}")
-                # Fail fast on cert/DNS errors — retrying won't help
-                if any(p in err_str for p in self._NO_RETRY_PATTERNS):
-                    return None
-                if attempt == 1:
-                    return None
-            finally:
-                if browser:
-                    await browser.close()
-                try:
-                    await pw.stop()
-                except Exception:
-                    pass
-        return None
+        except Exception as e:
+            logger.warning(f"Browser failed for {url}: {e}")
+            return None
+        finally:
+            if browser:
+                await browser.close()
+            try:
+                await pw.stop()
+            except Exception:
+                pass
