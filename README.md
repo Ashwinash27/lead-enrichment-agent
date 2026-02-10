@@ -1,9 +1,21 @@
 # Lead Research Agent
 
-AI-powered lead enrichment agent. Give it a name + company → get back a structured JSON profile built from public sources.
+## What Is This?
+
+Sales teams, recruiters, and founders spend hours manually researching leads — clicking through LinkedIn, Googling names, checking GitHub profiles, reading company pages. This project automates that entire workflow.
+
+Give it a person's name and company, and it returns a comprehensive, structured profile in seconds. It searches across multiple public sources simultaneously, pulls together everything it finds, and returns clean JSON with confidence scores so you know how much to trust each piece of data.
+
+**The problem it solves:** Manual lead research takes 10-15 minutes per person. This agent does it in under 45 seconds by running searches in parallel and using an LLM to extract structured data from raw search results.
+
+**How it works at a high level:**
+1. An LLM plans which sources to search (GitHub, web search, company websites)
+2. All searches run concurrently via asyncio
+3. A second LLM call extracts a structured profile from the combined raw results
+4. The output is a Pydantic-validated JSON profile with 15+ fields, confidence scores, and source-attributed findings
 
 ```
-POST /enrich {"name": "Saarth Shah", "company": "Sixtyfour"}
+POST /enrich {"name": "Guillermo Rauch", "company": "Vercel"}
 
 → Role, bio, education, skills, GitHub, LinkedIn, website,
   confidence scores, source-attributed findings — all in structured JSON.
@@ -47,7 +59,7 @@ cp .env.example .env
 
 **CLI:**
 ```bash
-python test_agent.py "Saarth Shah" "Sixtyfour"
+python test_agent.py "Guillermo Rauch" "Vercel"
 ```
 
 **API server:**
@@ -56,7 +68,7 @@ uvicorn main:app --reload
 
 curl -X POST http://localhost:8000/enrich \
   -H "Content-Type: application/json" \
-  -d '{"name": "Saarth Shah", "company": "Sixtyfour"}'
+  -d '{"name": "Guillermo Rauch", "company": "Vercel"}'
 ```
 
 ## Example Output
@@ -64,22 +76,22 @@ curl -X POST http://localhost:8000/enrich \
 ```json
 {
   "success": true,
-  "trace_id": "a4ada7b897a8",
+  "trace_id": "b7f3e2a91c04",
   "profile": {
-    "name": "Saarth Shah",
-    "role": "Co-Founder & CEO",
-    "company": "Sixtyfour",
+    "name": "Guillermo Rauch",
+    "role": "CEO",
+    "company": "Vercel",
     "location": "San Francisco, CA",
-    "bio": "Co-founder and CEO of Sixtyfour (YC X25), developing AI agents for people and company data enrichment. Previously at Whatnot, Deepgram, and Stanford.",
-    "education": ["UC Berkeley Data Science"],
-    "previous_companies": ["Whatnot", "Deepgram", "Stanford Snyder Lab", "SDSC", "Internalize"],
+    "bio": "CEO of Vercel, creator of Next.js and Socket.IO. Building the frontend cloud.",
+    "education": [],
+    "previous_companies": ["LearnBoost", "Cloudup"],
     "github": {
-      "username": "SaarthShah",
-      "public_repos": 48,
-      "top_languages": ["Swift", "TypeScript", "Python"]
+      "username": "rauchg",
+      "public_repos": 267,
+      "top_languages": ["JavaScript", "TypeScript", "Shell"]
     },
-    "linkedin_url": "https://www.linkedin.com/in/saarthshah",
-    "website": "https://www.saarthshah.com/",
+    "linkedin_url": "https://www.linkedin.com/in/guillermo-rauch",
+    "website": "https://rauchg.com",
     "confidence": {
       "name": 1.0,
       "company": 1.0,
@@ -89,13 +101,13 @@ curl -X POST http://localhost:8000/enrich \
       "github": 1.0
     },
     "findings": [
-      {"fact": "Sixtyfour is part of Y Combinator X25 cohort", "source": "ycombinator.com/companies/sixtyfour"},
-      {"fact": "Previously sold a company called Internalize", "source": "ycombinator.com/companies/sixtyfour"},
-      {"fact": "Sixtyfour hit $330K revenue with a 3 person team", "source": "getlatka.com/companies/sixtyfour.ai"}
+      {"fact": "Creator of Next.js, the React framework", "source": "github.com/rauchg"},
+      {"fact": "Vercel has raised over $300M in funding", "source": "crunchbase.com/organization/vercel"},
+      {"fact": "Created Socket.IO, one of the most popular real-time libraries", "source": "github.com/rauchg"}
     ],
-    "sources": ["linkedin.com/in/saarthshah", "github.com/SaarthShah", "sixtyfour.ai", "...5 more"]
+    "sources": ["linkedin.com/in/guillermo-rauch", "github.com/rauchg", "vercel.com", "...5 more"]
   },
-  "latency_ms": 27400
+  "latency_ms": 32100
 }
 ```
 
