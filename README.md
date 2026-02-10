@@ -134,6 +134,6 @@ curl -X POST http://localhost:8000/enrich \
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API key |
-| `GITHUB_TOKEN` | No | Raises GitHub rate limit to 5,000 req/hr |
-| `SCRAPERAPI_KEY` | No | Rotating proxy network for Playwright |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key for planner + extractor |
+| `GITHUB_TOKEN` | Yes | GitHub API — raises rate limit from 10 to 30 req/min |
+| `SCRAPERAPI_KEY` | Yes | Rotating proxy for Playwright browser scraping |
