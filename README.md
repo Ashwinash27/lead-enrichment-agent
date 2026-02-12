@@ -15,7 +15,7 @@ Give it a person's name and company, and it returns a comprehensive, structured 
 4. The output is a Pydantic-validated JSON profile with 15+ fields, confidence scores, and source-attributed findings
 
 ```
-POST /enrich {"name": "Guillermo Rauc", "company": "Vercel"}
+POST /enrich {"name": "", "company": ""}
 
 → Role, bio, education, skills, GitHub, LinkedIn, website,
   confidence scores, source-attributed findings — all in structured JSON.
@@ -24,7 +24,7 @@ POST /enrich {"name": "Guillermo Rauc", "company": "Vercel"}
 ## Architecture
 
 ```
-Client (POST /enrich) → {"name": "Guillermo Rauc", "company": "Vercel"}
+Client (POST /enrich) → {"name": "", "company": ""}
     │
     ▼
 FastAPI Server (main.py)
