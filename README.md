@@ -53,7 +53,7 @@ Orchestrator (orchestrator.py)
     │   │   PlaywrightTool ─── DNS check first ─── then scrape   │
     │   │    14-25s  sixtyfour.ai → DNS  → scrape            │
     │   │              sixtyfour.io → DNS  → skip instantly     │
-    │   │              sixtyfour.com → DNS  → scrape            │
+    │   │                     │
     │   │                                                        │
     │   └────────────────────────────────────────────────────────┘
     │   ┌─── Thread Pool (background threads) ──────────────────┐
