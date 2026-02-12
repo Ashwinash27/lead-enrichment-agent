@@ -24,26 +24,66 @@ POST /enrich {"name": "Guillermo Rauch", "company": "Vercel"}
 ## Architecture
 
 ```
-Input: name + company
-         │
-    ┌────▼─────┐
-    │ Planner  │  LLM decides which sources to hit
-    └────┬─────┘
-         │
-    ┌────▼──────────────────────────────┐
-    │  Parallel Execution (asyncio)     │
-    │  ├─ GitHub REST API               │
-    │  ├─ Web Search (DuckDuckGo ×4)    │
-    │  ├─ Hunter.io (email finder)      │
-    │  └─ Playwright (headless Chrome)  │
-    │     └─ DNS pre-check + proxy      │
-    └────┬──────────────────────────────┘
-         │
-    ┌────▼──────┐
-    │ Extractor │  LLM → structured JSON (Pydantic-validated)
-    └────┬──────┘
-         │
-    EnrichedProfile + confidence scores + findings
+Client (POST /enrich) → {"name": "Saarth Shah", "company": "Sixtyfour"}
+    │
+    ▼
+FastAPI Server (main.py)
+    │  Started with: source venv/bin/activate && python3 main.py
+    │  Swagger UI: http://localhost:8000/docs
+    ▼
+Orchestrator (orchestrator.py)
+    │
+    ├── Step 1: PLANNER (Claude LLM call #1) ⏱️ 3-5s
+    │   └── Input: name + company + tool descriptions
+    │   └── Output: which tools, what queries, which URLs
+    │   └── Fallback: hardcoded plan if Claude fails
+    │
+    ├── Step 2: PARALLEL EXECUTION (asyncio.gather) ⏱️ 18-25s total
+    │
+    │   ┌─── Event Loop (main thread) ──────────────────────────┐
+    │   │                                                        │
+    │   │   GitHubTool ──── GitHub REST API ──── httpx (async)   │
+    │   │   ⏱️ 1-2s                                              │
+    │   │                                                        │
+    │   │   HunterTool ──── Hunter.io API ───── httpx (async)    │
+    │   │   ⏱️ 1-2s  Extracts domains from planner's URLs        │
+    │   │            sixtyfour.com → no email → try next          │
+    │   │            sixtyfour.ai → saarth@sixtyfour.ai → stop   │
+    │   │                                                        │
+    │   │   PlaywrightTool ─── DNS check first ─── then scrape   │
+    │   │   ⏱️ 14-25s  sixtyfour.ai → DNS ✅ → scrape            │
+    │   │              sixtyfour.io → DNS ❌ → skip instantly     │
+    │   │              sixtyfour.com → DNS ✅ → scrape            │
+    │   │                                                        │
+    │   └────────────────────────────────────────────────────────┘
+    │   ┌─── Thread Pool (background threads) ──────────────────┐
+    │   │                                                        │
+    │   │   WebSearchTool ── DuckDuckGo ── run_in_executor()     │
+    │   │   ⏱️ 3-4s  (sync library, blocks → runs in thread)     │
+    │   │                                                        │
+    │   │   DNS Check ────── socket.getaddrinfo() ── in thread   │
+    │   │   ⏱️ <0.1s  (blocking call → runs in thread)            │
+    │   │                                                        │
+    │   └────────────────────────────────────────────────────────┘
+    │
+    │   Event Loop + Thread Pool run SIMULTANEOUSLY
+    │   Total time = slowest tool (browser ~20s), not sum of all
+    │
+    ├── Step 3: EXTRACTOR (Claude LLM call #2) ⏱️ 13-15s
+    │   └── Input: all raw data from tools (truncated to 30k chars)
+    │   └── Output: structured JSON validated by Pydantic
+    │   └── Fallback: minimal profile (name + company) if fails
+    │
+    └── Response: EnrichResponse
+            ├── success: bool
+            ├── profile: EnrichedProfile (15+ fields)
+            ├── confidence: 0.0-1.0 per field
+            ├── findings: fact + source URL pairs
+            ├── sources_searched: ["github", "web_search", "browser", "hunter"]
+            ├── errors: [] (any tool failures listed)
+            └── latency_ms: ~27000-45000
+
+Total: ~27-45 seconds | Cost: ~$0.01 | LLM calls: exactly 2
 ```
 
 See [DESIGN.md](DESIGN.md) for architecture decisions and tradeoffs.
