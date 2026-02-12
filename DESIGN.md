@@ -78,7 +78,7 @@ Uvicorn with `--workers 4` gives you multiprocessing, but each worker has its ow
 Launching a new Chromium instance per URL is ~2 seconds of overhead. A browser pool (3-5 persistent browsers, contexts rotated) drops this to ~200ms. The tradeoff is state leaks and zombie processes — needs a health-check loop.
 
 ### Proxy Strategy
-Playwright routes through ScraperAPI (or any rotating proxy) when configured. The proxy manager parses credentials into Playwright's required format (separate `server`, `username`, `password` fields) and Chromium launches with `--ignore-certificate-errors` since proxy services perform TLS interception. Each URL gets exactly one attempt — no retries. If a URL times out through a proxy, it's dead; retrying wastes time. The planner compensates by trying multiple TLD variants (.com, .ai, .io) so at least one is likely to resolve.
+The browser tool uses a direct-first approach: try without proxy for speed, fall back to rotating proxies (ScraperAPI) when a site blocks the direct request. Before any connection attempt, a DNS pre-check (`socket.getaddrinfo`) instantly skips domains that don't resolve — avoiding 30s timeouts on dead domains like `sixtyfour.io`. The proxy manager parses credentials into Playwright's required format (separate `server`, `username`, `password` fields) and Chromium launches with `--ignore-certificate-errors` since proxy services perform TLS interception. The planner always includes both `.com` and `.ai` variants for company domains since many tech startups use non-traditional TLDs.
 
 ### The Two-LLM-Call Budget
 This actually scales well. The planner call is small (~500 tokens in, ~200 out). The extractor is larger but bounded by our 30k char truncation. At $3/M input tokens for Sonnet, each enrichment costs ~$0.01. The real cost driver is tool execution time, not LLM spend.
@@ -87,7 +87,7 @@ This actually scales well. The planner call is small (~500 tokens in, ~200 out).
 No rate limiting in the MVP. In production: per-API-key limits (token bucket), per-IP limits (sliding window), and circuit breakers on downstream APIs (GitHub, DuckDuckGo) to avoid cascade failures.
 
 ### Email Discovery Strategy
-The Hunter.io integration uses domains extracted from the planner's `urls_to_scrape` rather than naively guessing `company.com`. When the planner suggests scraping `sixtyfour.ai` and `sixtyfour.com`, those same domains are passed to the email finder. It tries each domain in order and stops at the first hit. This reuses the planner's domain intelligence instead of duplicating it, and avoids wasting API credits on wrong TLDs.
+The Hunter.io integration uses domains from two sources: the planner's `urls_to_scrape` and common TLD variants (.com, .ai, .io, .co) generated from the company name. Planner domains go first (best guesses), then TLD variants fill in any gaps. It tries each domain in order and stops at the first email hit, avoiding wasted API credits.
 
 ### What I'd Add First
 1. **Redis cache** — biggest bang for buck. Second request for the same person is instant.

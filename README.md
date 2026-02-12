@@ -36,7 +36,7 @@ Input: name + company
     │  ├─ Web Search (DuckDuckGo ×4)    │
     │  ├─ Hunter.io (email finder)      │
     │  └─ Playwright (headless Chrome)  │
-    │     └─ via rotating proxies       │
+    │     └─ DNS pre-check + proxy      │
     └────┬──────────────────────────────┘
          │
     ┌────▼──────┐

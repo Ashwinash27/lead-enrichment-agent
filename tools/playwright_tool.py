@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import socket
 import time
+from urllib.parse import urlparse
 
 from playwright.async_api import async_playwright
 
@@ -51,10 +54,19 @@ class PlaywrightTool:
                 latency_ms=(time.time() - t0) * 1000,
             )
 
-        text = await self._scrape_url(url, use_proxy=True)
-        if not text and proxy_manager.get_playwright_proxy():
-            logger.info(f"Retrying {url} without proxy (direct connection)")
-            text = await self._scrape_url(url, use_proxy=False)
+        if not await self._domain_exists(url):
+            logger.info(f"Skipping {url} — domain does not resolve")
+            return ToolResult(
+                tool_name=self.name,
+                success=False,
+                error=f"Domain does not resolve: {url}",
+                latency_ms=(time.time() - t0) * 1000,
+            )
+
+        text = await self._scrape_url(url, use_proxy=False)
+        if not text and proxy_manager.has_proxies:
+            logger.info(f"Retrying {url} with rotating proxy")
+            text = await self._scrape_url(url, use_proxy=True)
         if text:
             await cache.set(cache_key, text, ttl=300)
             return ToolResult(
@@ -71,6 +83,18 @@ class PlaywrightTool:
             error=f"Failed to scrape {url}",
             latency_ms=(time.time() - t0) * 1000,
         )
+
+    async def _domain_exists(self, url: str) -> bool:
+        """Quick DNS check — returns False if domain doesn't resolve."""
+        hostname = urlparse(url).hostname or ""
+        if not hostname:
+            return False
+        loop = asyncio.get_event_loop()
+        try:
+            await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
+            return True
+        except socket.gaierror:
+            return False
 
     async def _scrape_url(self, url: str, use_proxy: bool = True) -> str | None:
         browser = None

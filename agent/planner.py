@@ -22,7 +22,7 @@ Available tools:
 Rules:
 - ALWAYS include "web_search" — it's the most reliable source.
 - Include "github" if the person is likely technical (engineer, developer, CTO, founder of a tech company).
-- When a company name is provided, ALWAYS include "browser" and add the company website to urls_to_scrape. For tech startups, try common TLD variants (.com, .ai, .io) since many use non-traditional TLDs. Include up to 2 URLs — e.g., both "https://companyname.com" and "https://companyname.ai". If one is wrong, the browser fails fast and other tools carry the profile.
+- When a company name is provided, ALWAYS include "browser" and add the company website to urls_to_scrape. ALWAYS include both .com and .ai variants (e.g., "https://companyname.com" and "https://companyname.ai") since many tech startups use non-traditional TLDs. Dead domains are detected and skipped instantly.
 - If the person likely has a personal website or blog, add those URLs too.
 - Include "hunter" when you need to find the person's email address. It works best with a full name and company.
 - Provide 2-4 search queries that would find relevant information.

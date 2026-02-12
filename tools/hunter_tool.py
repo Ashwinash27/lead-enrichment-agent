@@ -15,20 +15,31 @@ logger = logging.getLogger(__name__)
 HUNTER_API = "https://api.hunter.io/v2/email-finder"
 
 
+COMMON_TLDS = [".com", ".ai", ".io", ".co"]
+
+
 def _domains_from_urls(urls: list[str], company: str) -> list[str]:
-    """Extract unique domains from planner URLs, fall back to company.com."""
+    """Extract domains from planner URLs + common TLD variants, deduplicated."""
     seen: set[str] = set()
     domains: list[str] = []
+
+    # Start with domains the planner already identified
     for url in urls:
         host = urlparse(url).hostname or ""
-        # Strip www. prefix
         if host.startswith("www."):
             host = host[4:]
         if host and host not in seen:
             seen.add(host)
             domains.append(host)
-    if not domains:
-        domains.append(company.lower().replace(" ", "") + ".com")
+
+    # Add common TLD variants the planner may have missed
+    slug = company.lower().replace(" ", "")
+    for tld in COMMON_TLDS:
+        candidate = slug + tld
+        if candidate not in seen:
+            seen.add(candidate)
+            domains.append(candidate)
+
     return domains
 
 
