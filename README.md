@@ -33,43 +33,43 @@ FastAPI Server (main.py)
     ▼
 Orchestrator (orchestrator.py)
     │
-    ├── Step 1: PLANNER (Claude LLM call #1) ⏱️ 3-5s
+    ├── Step 1: PLANNER (Claude LLM call #1) 3-5s
     │   └── Input: name + company + tool descriptions
     │   └── Output: which tools, what queries, which URLs
     │   └── Fallback: hardcoded plan if Claude fails
     │
-    ├── Step 2: PARALLEL EXECUTION (asyncio.gather) ⏱️ 18-25s total
+    ├── Step 2: PARALLEL EXECUTION (asyncio.gather)  18-25s total
     │
     │   ┌─── Event Loop (main thread) ──────────────────────────┐
     │   │                                                        │
     │   │   GitHubTool ──── GitHub REST API ──── httpx (async)   │
-    │   │   ⏱️ 1-2s                                              │
+    │   │    1-2s                                              │
     │   │                                                        │
     │   │   HunterTool ──── Hunter.io API ───── httpx (async)    │
-    │   │   ⏱️ 1-2s  Extracts domains from planner's URLs        │
+    │   │    1-2s  Extracts domains from planner's URLs        │
     │   │            sixtyfour.com → no email → try next          │
     │   │            sixtyfour.ai → saarth@sixtyfour.ai → stop   │
     │   │                                                        │
     │   │   PlaywrightTool ─── DNS check first ─── then scrape   │
-    │   │   ⏱️ 14-25s  sixtyfour.ai → DNS ✅ → scrape            │
-    │   │              sixtyfour.io → DNS ❌ → skip instantly     │
-    │   │              sixtyfour.com → DNS ✅ → scrape            │
+    │   │    14-25s  sixtyfour.ai → DNS  → scrape            │
+    │   │              sixtyfour.io → DNS  → skip instantly     │
+    │   │              sixtyfour.com → DNS  → scrape            │
     │   │                                                        │
     │   └────────────────────────────────────────────────────────┘
     │   ┌─── Thread Pool (background threads) ──────────────────┐
     │   │                                                        │
     │   │   WebSearchTool ── DuckDuckGo ── run_in_executor()     │
-    │   │   ⏱️ 3-4s  (sync library, blocks → runs in thread)     │
+    │   │    3-4s  (sync library, blocks → runs in thread)     │
     │   │                                                        │
     │   │   DNS Check ────── socket.getaddrinfo() ── in thread   │
-    │   │   ⏱️ <0.1s  (blocking call → runs in thread)            │
+    │   │    <0.1s  (blocking call → runs in thread)            │
     │   │                                                        │
     │   └────────────────────────────────────────────────────────┘
     │
     │   Event Loop + Thread Pool run SIMULTANEOUSLY
     │   Total time = slowest tool (browser ~20s), not sum of all
     │
-    ├── Step 3: EXTRACTOR (Claude LLM call #2) ⏱️ 13-15s
+    ├── Step 3: EXTRACTOR (Claude LLM call #2)  13-15s
     │   └── Input: all raw data from tools (truncated to 30k chars)
     │   └── Output: structured JSON validated by Pydantic
     │   └── Fallback: minimal profile (name + company) if fails
