@@ -6,7 +6,7 @@ Sales teams, recruiters, and founders spend hours manually researching leads —
 
 Give it a person's name and company, and it returns a comprehensive, structured profile in seconds. It searches across multiple public sources simultaneously, pulls together everything it finds, and returns clean JSON with confidence scores so you know how much to trust each piece of data.
 
-**The problem it solves:** Manual lead research takes 10-15 minutes per person. This agent does it in under 45 seconds by running searches in parallel and using an LLM to extract structured data from raw search results.
+**The problem it solves:** Manual lead research takes 10-15 minutes per person. This agent does it in under 40 seconds by running searches in parallel and using an LLM to extract structured data from raw search results.
 
 **How it works at a high level:**
 1. An LLM plans which sources to search (GitHub, web search, company websites, email finder)
