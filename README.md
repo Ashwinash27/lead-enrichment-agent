@@ -48,7 +48,7 @@ Orchestrator (orchestrator.py)
     │   │   HunterTool ──── Hunter.io API ───── httpx (async)    │
     │   │    1-2s  Extracts domains from planner's URLs        │
     │   │            sixtyfour.com → no email → try next          │
-    │   │            sixtyfour.ai → saarth@sixtyfour.ai → stop   │
+    │   │            sixtyfour.ai → finds email → stop   │
     │   │                                                        │
     │   │   PlaywrightTool ─── DNS check first ─── then scrape   │
     │   │    14-25s  sixtyfour.ai → DNS  → scrape            │
