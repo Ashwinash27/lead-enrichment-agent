@@ -9,7 +9,7 @@ Give it a person's name and company, and it returns a comprehensive, structured 
 **The problem it solves:** Manual lead research takes 10-15 minutes per person. This agent does it in under 45 seconds by running searches in parallel and using an LLM to extract structured data from raw search results.
 
 **How it works at a high level:**
-1. An LLM plans which sources to search (GitHub, web search, company websites)
+1. An LLM plans which sources to search (GitHub, web search, company websites, email finder)
 2. All searches run concurrently via asyncio
 3. A second LLM call extracts a structured profile from the combined raw results
 4. The output is a Pydantic-validated JSON profile with 15+ fields, confidence scores, and source-attributed findings
@@ -34,6 +34,7 @@ Input: name + company
     │  Parallel Execution (asyncio)     │
     │  ├─ GitHub REST API               │
     │  ├─ Web Search (DuckDuckGo ×4)    │
+    │  ├─ Hunter.io (email finder)      │
     │  └─ Playwright (headless Chrome)  │
     │     └─ via rotating proxies       │
     └────┬──────────────────────────────┘
@@ -126,6 +127,7 @@ curl -X POST http://localhost:8000/enrich \
 └── tools/
     ├── github_tool.py       # GitHub REST API
     ├── search_tool.py       # DuckDuckGo web search
+    ├── hunter_tool.py       # Hunter.io email finder
     ├── playwright_tool.py   # Headless browser scraper
     └── proxy.py             # Rotating proxy manager
 ```
@@ -136,4 +138,5 @@ curl -X POST http://localhost:8000/enrich \
 |----------|----------|-------------|
 | `ANTHROPIC_API_KEY` | Yes | Claude API key for planner + extractor |
 | `GITHUB_TOKEN` | Yes | GitHub API — raises rate limit from 10 to 30 req/min |
+| `HUNTER_API_KEY` | No | Hunter.io API key for email finding |
 | `SCRAPERAPI_KEY` | Yes | Rotating proxy for Playwright browser scraping |

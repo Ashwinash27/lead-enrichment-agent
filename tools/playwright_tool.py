@@ -51,7 +51,10 @@ class PlaywrightTool:
                 latency_ms=(time.time() - t0) * 1000,
             )
 
-        text = await self._scrape_url(url)
+        text = await self._scrape_url(url, use_proxy=True)
+        if not text and proxy_manager.get_playwright_proxy():
+            logger.info(f"Retrying {url} without proxy (direct connection)")
+            text = await self._scrape_url(url, use_proxy=False)
         if text:
             await cache.set(cache_key, text, ttl=300)
             return ToolResult(
@@ -69,18 +72,18 @@ class PlaywrightTool:
             latency_ms=(time.time() - t0) * 1000,
         )
 
-    async def _scrape_url(self, url: str) -> str | None:
+    async def _scrape_url(self, url: str, use_proxy: bool = True) -> str | None:
         browser = None
         try:
             pw = await async_playwright().start()
             launch_args: dict = {"headless": True}
-            proxy_cfg = proxy_manager.get_playwright_proxy()
+            proxy_cfg = proxy_manager.get_playwright_proxy() if use_proxy else None
             if proxy_cfg:
                 launch_args["proxy"] = proxy_cfg
                 launch_args["args"] = ["--ignore-certificate-errors"]
                 logger.info(f"Using proxy: {proxy_cfg['server']}")
             else:
-                logger.info("No proxy configured, connecting directly")
+                logger.info("Connecting directly (no proxy)")
 
             browser = await pw.chromium.launch(**launch_args)
             context = await browser.new_context(

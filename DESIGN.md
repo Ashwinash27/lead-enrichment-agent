@@ -28,7 +28,7 @@ class Tool(Protocol):
     async def run(self, name: str, company: str, **kwargs) -> ToolResult
 ```
 
-This isn't just clean code. It's the **extensibility seam** for the entire system. Adding a new data source (Crunchbase, Twitter/X, HackerNews, Patent databases) means writing one class, registering it, and updating the planner prompt. The orchestrator, extractor, cache, and API layer don't change.
+This isn't just clean code. It's the **extensibility seam** for the entire system. Adding a new data source means writing one class, registering it, and updating the planner prompt. The orchestrator, extractor, cache, and API layer don't change. The Hunter.io email finder tool is a good example — it follows the exact same protocol, gets dispatched concurrently alongside GitHub/search/browser, and the extractor picks up the email from its `ToolResult` without any special handling.
 
 The `ToolResult` envelope is equally important. Every tool returns `ToolResult(success=False, error=...)` on failure — **never throws**. This means `asyncio.gather()` always completes, the orchestrator always has results to work with, and one flaky API doesn't take down the whole request.
 
@@ -85,6 +85,9 @@ This actually scales well. The planner call is small (~500 tokens in, ~200 out).
 
 ### Rate Limiting
 No rate limiting in the MVP. In production: per-API-key limits (token bucket), per-IP limits (sliding window), and circuit breakers on downstream APIs (GitHub, DuckDuckGo) to avoid cascade failures.
+
+### Email Discovery Strategy
+The Hunter.io integration uses domains extracted from the planner's `urls_to_scrape` rather than naively guessing `company.com`. When the planner suggests scraping `sixtyfour.ai` and `sixtyfour.com`, those same domains are passed to the email finder. It tries each domain in order and stops at the first hit. This reuses the planner's domain intelligence instead of duplicating it, and avoids wasting API credits on wrong TLDs.
 
 ### What I'd Add First
 1. **Redis cache** — biggest bang for buck. Second request for the same person is instant.

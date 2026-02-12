@@ -64,6 +64,8 @@ async def enrich_lead(request: EnrichRequest) -> EnrichResponse:
             kwargs: dict = {"name": request.name, "company": request.company}
             if tool_name == "web_search":
                 kwargs["search_queries"] = decision.search_queries
+            elif tool_name == "hunter":
+                kwargs["urls_to_scrape"] = decision.urls_to_scrape
             tasks.append(
                 asyncio.create_task(
                     _run_tool_timed(tool, tool_name, t0, trace_id, kwargs),

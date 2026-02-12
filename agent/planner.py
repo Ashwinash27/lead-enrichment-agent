@@ -24,6 +24,7 @@ Rules:
 - Include "github" if the person is likely technical (engineer, developer, CTO, founder of a tech company).
 - When a company name is provided, ALWAYS include "browser" and add the company website to urls_to_scrape. For tech startups, try common TLD variants (.com, .ai, .io) since many use non-traditional TLDs. Include up to 2 URLs — e.g., both "https://companyname.com" and "https://companyname.ai". If one is wrong, the browser fails fast and other tools carry the profile.
 - If the person likely has a personal website or blog, add those URLs too.
+- Include "hunter" when you need to find the person's email address. It works best with a full name and company.
 - Provide 2-4 search queries that would find relevant information.
 
 Respond with ONLY a JSON object (no markdown fences, no explanation):
@@ -82,6 +83,7 @@ def _fallback_plan(name: str, company: str) -> PlannerDecision:
     if company:
         slug = company.lower().replace(" ", "")
         tools.append("browser")
+        tools.append("hunter")
         urls.append(f"https://{slug}.com")
 
     return PlannerDecision(
