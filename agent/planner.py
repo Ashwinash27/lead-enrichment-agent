@@ -21,27 +21,36 @@ Available tools:
 
 Rules:
 - ALWAYS include "web_search" — it's the most reliable source.
+- ALWAYS include "news" — recent news is the highest-value conversation signal.
 - Include "github" if the person is likely technical (engineer, developer, CTO, founder of a tech company).
-- When a company name is provided, ALWAYS include "browser" and add the company website to urls_to_scrape. ALWAYS include both .com and .ai variants (e.g., "https://companyname.com" and "https://companyname.ai") since many tech startups use non-traditional TLDs. Dead domains are detected and skipped instantly.
+- Include "community" if the person is likely technical or active in public forums (engineers, founders, DevRel).
+- When a company name is provided, ALWAYS include "browser" and add the company website to urls_to_scrape. Include both .com and .ai variants (e.g., "https://companyname.com" and "https://companyname.ai") since many tech startups use non-traditional TLDs.
 - If the person likely has a personal website or blog, add those URLs too.
-- Include "hunter" when you need to find the person's email address. It works best with a full name and company.
-- Provide 2-4 search queries that would find relevant information.
+- If you can guess their Twitter/X handle, add "https://x.com/{{handle}}" to urls_to_scrape.
+- Provide 3-5 search queries for maximum coverage:
+  1. General: "{{name}} {{company}}"
+  2. Social: "site:x.com {{name}} {{company}}" or "site:linkedin.com {{name}} {{company}}"
+  3. Content: "{{name}} podcast interview" or "{{name}} blog post" or "{{name}} conference talk"
+  4. Company signals: "{{company}} funding" or "site:producthunt.com {{company}}"
+  5. Role-specific: "{{company}} careers" or "{{name}} {{role}}" if role is known
 
 Respond with ONLY a JSON object (no markdown fences, no explanation):
 {{
-  "tools_to_run": ["web_search", "github", "browser"],
-  "search_queries": ["query1", "query2"],
+  "tools_to_run": ["web_search", "github", "browser", "news", "community"],
+  "search_queries": ["query1", "query2", "query3"],
   "urls_to_scrape": ["https://company.com"],
   "reasoning": "brief explanation"
 }}"""
 
 
-async def plan(name: str, company: str, trace_id: str) -> PlannerDecision:
+async def plan(name: str, company: str, trace_id: str, location: str = "") -> PlannerDecision:
     try:
         tool_desc = registry.tool_descriptions()
         prompt = SYSTEM_PROMPT.format(tool_descriptions=tool_desc)
 
         user_msg = f"Research this person:\nName: {name}\nCompany: {company}"
+        if location:
+            user_msg += f"\nLocation: {location}"
 
         response = await client.messages.create(
             model=ANTHROPIC_MODEL,
@@ -69,22 +78,29 @@ async def plan(name: str, company: str, trace_id: str) -> PlannerDecision:
 
     except Exception as e:
         logger.error(f"[{trace_id}] Planner failed: {e}, using fallback")
-        return _fallback_plan(name, company)
+        return _fallback_plan(name, company, location)
 
 
-def _fallback_plan(name: str, company: str) -> PlannerDecision:
-    queries = [f"{name} {company}".strip()]
+def _fallback_plan(name: str, company: str, location: str = "") -> PlannerDecision:
+    base = f"{name} {company}".strip()
+    if location:
+        base = f"{name} {company} {location}".strip()
+
+    queries = [
+        base,
+        f"site:linkedin.com {base}",
+        f"{name} interview OR podcast OR talk",
+    ]
     if company:
-        queries.append(f"{name} {company} LinkedIn")
-    queries.append(f"{name} software engineer")
+        queries.append(f"{company} funding OR launch OR announcement")
 
-    tools = ["web_search", "github"]
+    tools = ["web_search", "github", "news", "community"]
     urls: list[str] = []
     if company:
         slug = company.lower().replace(" ", "")
         tools.append("browser")
-        tools.append("hunter")
         urls.append(f"https://{slug}.com")
+        urls.append(f"https://{slug}.ai")
 
     return PlannerDecision(
         tools_to_run=tools,

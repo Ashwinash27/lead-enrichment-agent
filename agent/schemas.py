@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 class EnrichRequest(BaseModel):
     name: str = Field(..., max_length=200)
     company: str = Field(default="", max_length=200)
+    location: str = Field(default="", max_length=200)
+    output_format: str = Field(default="structured", pattern="^(structured|narrative|both)$")
+    use_case: str = Field(default="sales", pattern="^(sales|recruiting|job_search)$")
 
 
 class GitHubProfile(BaseModel):
@@ -18,6 +21,9 @@ class GitHubProfile(BaseModel):
     followers: int = 0
     top_languages: list[str] = Field(default_factory=list)
     notable_repos: list[str] = Field(default_factory=list)
+    recent_stars: list[str] = Field(default_factory=list)
+    recent_activity_summary: str = ""
+    activity_level: str = ""
 
 
 class Finding(BaseModel):
@@ -34,6 +40,15 @@ class ConfidenceScores(BaseModel):
     bio: float = 0.0
     github: float = 0.0
     linkedin_url: float = 0.0
+    twitter_handle: float = 0.0
+    recent_news: float = 0.0
+
+
+class FieldFreshness(BaseModel):
+    field: str = ""
+    last_confirmed: str = ""
+    source_type: str = ""
+    freshness_score: float = 1.0
 
 
 class EnrichedProfile(BaseModel):
@@ -54,6 +69,17 @@ class EnrichedProfile(BaseModel):
     sources: list[str] = Field(default_factory=list)
     confidence: ConfidenceScores = Field(default_factory=ConfidenceScores)
     findings: list[Finding] = Field(default_factory=list)
+    disambiguation_confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    candidates_found: int = Field(default=1, ge=0)
+    disambiguation_signals: list[str] = Field(default_factory=list)
+    freshness: list[FieldFreshness] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
+    recent_news: list[str] = Field(default_factory=list)
+    twitter_handle: str = ""
+    twitter_bio: str = ""
+    community_highlights: list[str] = Field(default_factory=list)
+    media_appearances: list[str] = Field(default_factory=list)
+    interests: list[str] = Field(default_factory=list)
 
 
 class EnrichResponse(BaseModel):
@@ -63,6 +89,8 @@ class EnrichResponse(BaseModel):
     sources_searched: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
     latency_ms: float = 0.0
+    narrative: str = ""
+    talking_points: list[str] = Field(default_factory=list)
 
 
 class ToolResult(BaseModel):

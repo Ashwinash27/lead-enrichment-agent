@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections import Counter
+from datetime import datetime, timezone
 
 import httpx
 
@@ -54,9 +56,17 @@ class GitHubTool:
                         latency_ms=(time.time() - t0) * 1000,
                     )
 
-                profile = await self._get_profile(client, login)
-                repos = await self._get_repos(client, login)
-                summary = self._format_summary(profile, repos)
+                profile, repos, starred, events = await asyncio.gather(
+                    self._get_profile(client, login),
+                    self._get_repos(client, login),
+                    self._get_starred(client, login),
+                    self._get_events(client, login),
+                )
+
+                activity_level, activity_summary = self._analyze_events(events)
+                summary = self._format_summary(
+                    profile, repos, starred, activity_level, activity_summary
+                )
 
                 await cache.set(cache_key, summary, ttl=600)
                 return ToolResult(
@@ -86,7 +96,6 @@ class GitHubTool:
     async def _search_user(
         self, client: httpx.AsyncClient, name: str, company: str
     ) -> str | None:
-        # Try progressively broader queries: "name company" → "name"
         queries = [f"{name} {company}".strip()]
         if company:
             queries.append(name)
@@ -136,7 +145,82 @@ class GitHubTool:
         resp.raise_for_status()
         return resp.json()
 
-    def _format_summary(self, profile: dict, repos: list[dict]) -> str:
+    async def _get_starred(
+        self, client: httpx.AsyncClient, login: str
+    ) -> list[dict]:
+        try:
+            resp = await self._request(
+                client,
+                f"{GITHUB_API}/users/{login}/starred",
+                params={"sort": "created", "per_page": 20},
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.warning(f"GitHub starred fetch failed: {e}")
+            return []
+
+    async def _get_events(
+        self, client: httpx.AsyncClient, login: str
+    ) -> list[dict]:
+        try:
+            resp = await self._request(
+                client,
+                f"{GITHUB_API}/users/{login}/events/public",
+                params={"per_page": 30},
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.warning(f"GitHub events fetch failed: {e}")
+            return []
+
+    def _analyze_events(self, events: list[dict]) -> tuple[str, str]:
+        if not events:
+            return "inactive", "No recent public activity"
+
+        now = datetime.now(timezone.utc)
+        recent_count = 0
+        event_types: Counter[str] = Counter()
+        repos_touched: set[str] = set()
+
+        for event in events:
+            created = event.get("created_at", "")
+            if created:
+                try:
+                    dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    if (now - dt).days <= 30:
+                        recent_count += 1
+                except (ValueError, TypeError):
+                    pass
+            etype = event.get("type", "").replace("Event", "")
+            event_types[etype] += 1
+            repo = event.get("repo", {}).get("name", "")
+            if repo:
+                repos_touched.add(repo)
+
+        if recent_count >= 15:
+            level = "highly_active"
+        elif recent_count >= 5:
+            level = "active"
+        elif recent_count >= 1:
+            level = "occasional"
+        else:
+            level = "inactive"
+
+        top_types = ", ".join(f"{t}({c})" for t, c in event_types.most_common(3))
+        top_repos = ", ".join(list(repos_touched)[:5])
+        summary = f"{recent_count} events in last 30 days. Types: {top_types}. Repos: {top_repos}"
+        return level, summary
+
+    def _format_summary(
+        self,
+        profile: dict,
+        repos: list[dict],
+        starred: list[dict],
+        activity_level: str,
+        activity_summary: str,
+    ) -> str:
         languages: dict[str, int] = {}
         notable: list[str] = []
         for repo in repos:
@@ -149,6 +233,8 @@ class GitHubTool:
 
         top_langs = sorted(languages, key=languages.get, reverse=True)[:5]
 
+        recent_stars = [r.get("full_name", "") for r in starred[:10] if r.get("full_name")]
+
         lines = [
             f"GitHub Profile: {profile.get('login', '')}",
             f"URL: {profile.get('html_url', '')}",
@@ -160,5 +246,8 @@ class GitHubTool:
             f"Followers: {profile.get('followers', 0)}",
             f"Top Languages: {', '.join(top_langs)}",
             f"Notable Repos: {', '.join(notable[:10])}",
+            f"Recent Stars: {', '.join(recent_stars) if recent_stars else 'None'}",
+            f"Activity Level: {activity_level}",
+            f"Recent Activity: {activity_summary}",
         ]
         return "\n".join(lines)

@@ -1,10 +1,14 @@
 from agent.tool_protocol import registry
 from tools.github_tool import GitHubTool
-from tools.search_tool import WebSearchTool
+from tools.serper_tool import SerperSearchTool
 from tools.playwright_tool import PlaywrightTool
-from tools.hunter_tool import HunterIoTool
+from tools.news_tool import SerperNewsTool
+from tools.community_tool import CommunityActivityTool
 
 registry.register(GitHubTool())
-registry.register(WebSearchTool())
+registry.register(SerperSearchTool())
 registry.register(PlaywrightTool())
-registry.register(HunterIoTool())
+registry.register(SerperNewsTool())
+registry.register(CommunityActivityTool())
+# EmailPipeline NOT registered — orchestrator calls it directly
+# HunterIoTool NOT registered — called internally by EmailPipeline
