@@ -27,6 +27,7 @@ class GitHubTool:
 
     def __init__(self) -> None:
         self._use_auth = bool(GITHUB_TOKEN)
+        self._prefetched_profile: dict | None = None
 
     def _headers(self) -> dict[str, str]:
         h = {"Accept": "application/vnd.github+json"}
@@ -57,12 +58,22 @@ class GitHubTool:
                         latency_ms=(time.time() - t0) * 1000,
                     )
 
-                profile, repos, starred, events = await asyncio.gather(
-                    self._get_profile(client, login),
-                    self._get_repos(client, login),
-                    self._get_starred(client, login),
-                    self._get_events(client, login),
-                )
+                # Use prefetched profile from credibility check if available
+                if self._prefetched_profile and self._prefetched_profile.get("login") == login:
+                    profile = self._prefetched_profile
+                    self._prefetched_profile = None
+                    repos, starred, events = await asyncio.gather(
+                        self._get_repos(client, login),
+                        self._get_starred(client, login),
+                        self._get_events(client, login),
+                    )
+                else:
+                    profile, repos, starred, events = await asyncio.gather(
+                        self._get_profile(client, login),
+                        self._get_repos(client, login),
+                        self._get_starred(client, login),
+                        self._get_events(client, login),
+                    )
 
                 activity_level, activity_summary = self._analyze_events(events)
                 summary = self._format_summary(
@@ -94,31 +105,127 @@ class GitHubTool:
             resp = await client.get(url, headers=self._headers(), **kwargs)
         return resp
 
+    # Minimum followers to consider a GitHub account credible.
+    # Repos alone are too easy to game (empty repos, forks, etc).
+    _MIN_FOLLOWERS = 50
+
     async def _search_user(
         self, client: httpx.AsyncClient, name: str, company: str
     ) -> str | None:
+        # Build search queries: full name+company, name only, username guesses
         queries = [f"{name} {company}".strip()]
         if company:
             queries.append(name)
 
+        # Generate username guesses: "firstlast", "first-last", "flast"
+        parts = name.strip().lower().split()
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            queries.extend([
+                f"{first}{last}",
+                f"{first}-{last}",
+                f"{first[0]}{last}",
+            ])
+
+        seen: set[str] = set()
         for query in queries:
-            login = await self._try_search(client, query)
+            login = await self._try_search_credible(
+                client, query, seen,
+                expected_name=name, expected_company=company,
+            )
             if login:
                 return login
         return None
 
     @retry_with_backoff()
-    async def _try_search(
-        self, client: httpx.AsyncClient, query: str
+    async def _try_search_credible(
+        self, client: httpx.AsyncClient, query: str, seen: set[str],
+        expected_name: str = "", expected_company: str = "",
     ) -> str | None:
         resp = await self._request(
             client,
             f"{GITHUB_API}/search/users",
-            params={"q": query, "per_page": 3},
+            params={"q": query, "per_page": 5},
         )
         resp.raise_for_status()
         items = resp.json().get("items", [])
-        return items[0]["login"] if items else None
+
+        for item in items:
+            login = item["login"]
+            if login in seen:
+                continue
+            seen.add(login)
+
+            # Check credibility from profile data
+            profile = await self._get_profile(client, login)
+            followers = profile.get("followers", 0)
+            public_repos = profile.get("public_repos", 0)
+
+            if followers < self._MIN_FOLLOWERS:
+                logger.info(
+                    f"GitHub skipping low-credibility account: {login} "
+                    f"({followers} followers, {public_repos} repos)"
+                )
+                continue
+
+            # Name cross-validation: profile name must match the search name
+            if expected_name and not self._name_matches(profile, expected_name):
+                logger.info(
+                    f"GitHub skipping name mismatch: {login} "
+                    f"(profile name='{profile.get('name', '')}', "
+                    f"expected='{expected_name}')"
+                )
+                continue
+
+            # Company cross-validation: if we searched with a company, check
+            # that the profile doesn't list a DIFFERENT company
+            if expected_company and not self._company_matches(profile, expected_company):
+                logger.info(
+                    f"GitHub skipping company mismatch: {login} "
+                    f"(profile company='{profile.get('company', '')}', "
+                    f"expected='{expected_company}')"
+                )
+                continue
+
+            logger.info(
+                f"GitHub credible match: {login} "
+                f"({followers} followers, {public_repos} repos)"
+            )
+            self._prefetched_profile = profile
+            return login
+
+        return None
+
+    @staticmethod
+    def _name_matches(profile: dict, expected: str) -> bool:
+        """Check if profile name matches the expected person name."""
+        profile_name = (profile.get("name") or "").strip().lower()
+        if not profile_name:
+            return True  # Empty name is neutral, not a mismatch
+        expected_lower = expected.strip().lower()
+        expected_parts = set(expected_lower.split())
+        profile_parts = set(profile_name.split())
+        # At least one name part must overlap (first or last name)
+        return bool(expected_parts & profile_parts)
+
+    @staticmethod
+    def _company_matches(profile: dict, expected: str) -> bool:
+        """Check if a profile's company/bio is compatible with the expected company."""
+        expected_lower = expected.strip().lower()
+        # Check company field
+        company_field = (profile.get("company") or "").strip().lower()
+        if not company_field:
+            return True  # Empty company is neutral, not a mismatch
+        # Match if company field contains expected, or expected contains company
+        # Also match URLs like "https://vercel.com" for company "Vercel"
+        if expected_lower in company_field or company_field in expected_lower:
+            return True
+        # Check bio as fallback
+        bio = (profile.get("bio") or "").lower()
+        if expected_lower in bio:
+            return True
+        # Company field is set but doesn't match — mismatch
+        return False
 
     @retry_with_backoff()
     async def _get_profile(
