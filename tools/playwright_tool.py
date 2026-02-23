@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 
 from playwright.async_api import async_playwright
 
+import traceback
+
 from agent.cache import cache
 from agent.schemas import ToolResult
 from config import PLAYWRIGHT_TIMEOUT
@@ -53,6 +55,14 @@ class PlaywrightTool:
                 success=True,
                 latency_ms=(time.time() - t0) * 1000,
             )
+
+        # Debug: log proxy configuration
+        from config import PROXY_LIST, SCRAPERAPI_KEY
+        logger.info(
+            f"[browser-debug] PROXY_LIST loaded: {len(PROXY_LIST)} entries, "
+            f"SCRAPERAPI_KEY set: {bool(SCRAPERAPI_KEY)}, "
+            f"proxy_manager.has_proxies: {proxy_manager.has_proxies}"
+        )
 
         if not await self._domain_exists(url):
             logger.info(f"Skipping {url} — domain does not resolve")
@@ -105,9 +115,15 @@ class PlaywrightTool:
             if proxy_cfg:
                 launch_args["proxy"] = proxy_cfg
                 launch_args["args"] = ["--ignore-certificate-errors"]
-                logger.info(f"Using proxy: {proxy_cfg['server']}")
+                masked_server = proxy_cfg["server"]
+                masked_user = proxy_cfg.get("username", "none")
+                has_pass = bool(proxy_cfg.get("password"))
+                logger.info(
+                    f"[browser-debug] Proxy config: server={masked_server}, "
+                    f"username={masked_user}, password_set={has_pass}"
+                )
             else:
-                logger.info("Connecting directly (no proxy)")
+                logger.info(f"[browser-debug] Connecting directly (no proxy, use_proxy={use_proxy})")
 
             browser = await pw.chromium.launch(**launch_args)
             context = await browser.new_context(
@@ -134,7 +150,10 @@ class PlaywrightTool:
             return header + text
 
         except Exception as e:
-            logger.warning(f"Browser failed for {url}: {e}")
+            logger.error(
+                f"[browser-debug] FAILED {url} (proxy={use_proxy}): "
+                f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+            )
             return None
         finally:
             if browser:
