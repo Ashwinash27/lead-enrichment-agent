@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import operator
-from typing import Annotated, TypedDict
+from typing import Annotated, Awaitable, Callable, TypedDict
 
 from agent.schemas import EnrichedProfile, PlannerDecision, ToolResult
+
+# Optional callback for SSE event emission (None = no streaming)
+EventCallback = Callable[[dict], Awaitable[None]] | None
 
 
 class AgentState(TypedDict, total=False):
@@ -27,3 +30,6 @@ class AgentState(TypedDict, total=False):
     # Observability
     errors: Annotated[list[str], operator.add]  # parallel-safe
     latency_ms: float
+
+    # SSE streaming (set once at invocation, read-only by nodes)
+    event_callback: EventCallback

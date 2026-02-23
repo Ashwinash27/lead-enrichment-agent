@@ -181,3 +181,29 @@ python -m benchmarks.benchmark --runs 3
 └── benchmarks/
     └── benchmark.py            # Latency benchmarking with phase timing
 ```
+
+## Who It's For
+
+### Sales Teams
+
+Find warm angles before every outreach. The agent surfaces funding signals, tech stack details, GitHub activity, and recent news — so your first message references something real instead of a generic template.
+
+```bash
+python test_agent.py "Jason Lemkin" "SaaStr" "" "sales"
+```
+
+### Recruiters
+
+Understand candidates beyond their resume. See their open-source contributions, community engagement, technical interests, and career trajectory to craft outreach that shows you actually looked.
+
+```bash
+python test_agent.py "Mitchell Hashimoto" "Ghostty" "" "recruiting"
+```
+
+### Job Seekers
+
+Research hiring managers and key contacts before reaching out. Get specific talking points based on their recent work, company news, and shared interests — so you can open with substance instead of "I saw your posting."
+
+```bash
+python test_agent.py "Kelsey Hightower" "Google" "" "job_search"
+```

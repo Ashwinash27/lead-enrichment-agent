@@ -42,6 +42,13 @@ async def _run_tool_timed(
     return result
 
 
+async def _emit(state: AgentState, event: dict) -> None:
+    """Emit an SSE event if streaming is active. No-op otherwise."""
+    cb = state.get("event_callback")
+    if cb:
+        await cb(event)
+
+
 # ── Node functions ───────────────────────────────────────────────────────
 
 
@@ -49,6 +56,8 @@ async def planner_node(state: AgentState) -> dict:
     """Phase A (branch 1): Run the LLM planner."""
     t0, trace_id = state["t0"], state["trace_id"]
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE A — planner START")
+
+    await _emit(state, {"type": "status", "data": {"phase": "planner", "status": "started"}})
 
     errors: list[str] = []
     try:
@@ -67,6 +76,17 @@ async def planner_node(state: AgentState) -> dict:
         f"[{trace_id}] [{_ts(t0)}] PHASE A — planner DONE: "
         f"{decision.tools_to_run} | queries={len(decision.search_queries)}"
     )
+
+    await _emit(state, {
+        "type": "status",
+        "data": {
+            "phase": "planner",
+            "status": "completed",
+            "tools_planned": decision.tools_to_run,
+            "query_count": len(decision.search_queries),
+        },
+    })
+
     return {"decision": decision, "errors": errors}
 
 
@@ -74,6 +94,8 @@ async def deterministic_tools_node(state: AgentState) -> dict:
     """Phase A (branch 2): Run github + news + community concurrently."""
     t0, trace_id = state["t0"], state["trace_id"]
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE A — deterministic tools START")
+
+    await _emit(state, {"type": "status", "data": {"phase": "deterministic_tools", "status": "started"}})
 
     deterministic_names = ["github", "news", "community"]
     tasks: list[asyncio.Task] = []
@@ -105,6 +127,10 @@ async def deterministic_tools_node(state: AgentState) -> dict:
             tool_results.append(
                 ToolResult(tool_name=name, success=False, error=str(result))
             )
+            await _emit(state, {
+                "type": "tool_result",
+                "data": {"tool": name, "success": False, "error": str(result)},
+            })
         else:
             tr: ToolResult = result
             if tr.success:
@@ -113,8 +139,21 @@ async def deterministic_tools_node(state: AgentState) -> dict:
                 logger.warning(f"[{trace_id}] {tr.tool_name} failed: {tr.error}")
                 errors.append(f"{tr.tool_name}: {tr.error}")
             tool_results.append(tr)
+            await _emit(state, {
+                "type": "tool_result",
+                "data": {
+                    "tool": tr.tool_name,
+                    "success": tr.success,
+                    "latency_ms": tr.latency_ms,
+                    "preview": tr.raw_data[:500] if tr.success else "",
+                    "error": tr.error if not tr.success else "",
+                },
+            })
 
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE A — deterministic tools DONE")
+
+    await _emit(state, {"type": "status", "data": {"phase": "deterministic_tools", "status": "completed"}})
+
     return {"tool_results": tool_results, "errors": errors}
 
 
@@ -122,6 +161,8 @@ async def planner_dependent_node(state: AgentState) -> dict:
     """Phase B: Run web_search + browser based on planner decision."""
     t0, trace_id = state["t0"], state["trace_id"]
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE B START (planner-dependent tools)")
+
+    await _emit(state, {"type": "status", "data": {"phase": "planner_dependent", "status": "started"}})
 
     decision = state.get("decision")
     if decision is None:
@@ -180,6 +221,10 @@ async def planner_dependent_node(state: AgentState) -> dict:
                 tool_results.append(
                     ToolResult(tool_name=name, success=False, error=str(result))
                 )
+                await _emit(state, {
+                    "type": "tool_result",
+                    "data": {"tool": name, "success": False, "error": str(result)},
+                })
             else:
                 tr: ToolResult = result
                 if tr.success:
@@ -188,8 +233,21 @@ async def planner_dependent_node(state: AgentState) -> dict:
                     logger.warning(f"[{trace_id}] {tr.tool_name} failed: {tr.error}")
                     errors.append(f"{tr.tool_name}: {tr.error}")
                 tool_results.append(tr)
+                await _emit(state, {
+                    "type": "tool_result",
+                    "data": {
+                        "tool": tr.tool_name,
+                        "success": tr.success,
+                        "latency_ms": tr.latency_ms,
+                        "preview": tr.raw_data[:500] if tr.success else "",
+                        "error": tr.error if not tr.success else "",
+                    },
+                })
 
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE B DONE")
+
+    await _emit(state, {"type": "status", "data": {"phase": "planner_dependent", "status": "completed"}})
+
     return {"tool_results": tool_results, "errors": errors}
 
 
@@ -197,6 +255,8 @@ async def email_pipeline_node(state: AgentState) -> dict:
     """Phase B.5: Run email waterfall with all prior tool results."""
     t0, trace_id = state["t0"], state["trace_id"]
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE B.5 START (email pipeline)")
+
+    await _emit(state, {"type": "status", "data": {"phase": "email", "status": "started"}})
 
     all_results = state.get("tool_results", [])
     result = await _run_tool_timed(
@@ -208,6 +268,25 @@ async def email_pipeline_node(state: AgentState) -> dict:
     if not result.success:
         errors.append(f"email_pipeline: {result.error}")
 
+    # Parse email result for streaming
+    email_data: dict = {}
+    if result.success and result.raw_data:
+        for line in result.raw_data.split("\n"):
+            if line.startswith("Email: "):
+                email_data["email"] = line[7:].strip()
+            elif line.startswith("Confidence: "):
+                try:
+                    email_data["confidence"] = float(line[12:].strip())
+                except ValueError:
+                    pass
+            elif line.startswith("Source: "):
+                email_data["source"] = line[8:].strip()
+
+    await _emit(state, {
+        "type": "email_found",
+        "data": email_data if email_data.get("email") else {"email": "", "error": result.error or "not found"},
+    })
+
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE B.5 DONE")
     return {"tool_results": [result], "email_result": result, "errors": errors}
 
@@ -216,6 +295,8 @@ async def extractor_node(state: AgentState) -> dict:
     """Phase C: Extract profile + generate talking points concurrently."""
     t0, trace_id = state["t0"], state["trace_id"]
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE C START (extract + talking points concurrent)")
+
+    await _emit(state, {"type": "status", "data": {"phase": "extraction", "status": "started"}})
 
     successful_results = [tr for tr in state.get("tool_results", []) if tr.success]
 
@@ -229,6 +310,10 @@ async def extractor_node(state: AgentState) -> dict:
             use_case=state.get("use_case", "sales"),
         ),
     )
+
+    if profile:
+        await _emit(state, {"type": "profile", "data": profile.model_dump()})
+    await _emit(state, {"type": "talking_points", "data": {"points": talking_points}})
 
     logger.info(f"[{trace_id}] [{_ts(t0)}] PHASE C DONE")
     return {"profile": profile, "talking_points": talking_points}

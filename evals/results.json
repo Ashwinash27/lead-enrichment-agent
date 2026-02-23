@@ -1,0 +1,32 @@
+{
+  "wall_clock_s": 47.6,
+  "avg_score": 1.0,
+  "hunter_l4_hits": 1,
+  "cases": [
+    {
+      "case_id": "guillermo-rauch",
+      "name": "Guillermo Rauch",
+      "company": "Vercel",
+      "elapsed_s": 47.6,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "exact:github_username": 1.0,
+        "contains:role": 1.0,
+        "contains:company": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:skills": 1.0,
+        "non_empty:talking_points": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:skills": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "guillermo.rauch@vercel.com",
+      "github_found": "rauchg",
+      "talking_points_count": 7
+    }
+  ]
+}

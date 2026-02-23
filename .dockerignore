@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.git/
+.gitignore
+venv/
+.venv/
+evals/results.json
+benchmarks/results.json
+.claude/
+.planning/
+extension/
+*.md
+!requirements.txt

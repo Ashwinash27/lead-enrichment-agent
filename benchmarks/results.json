@@ -1,0 +1,48 @@
+{
+  "target": "Guillermo Rauch @ Vercel",
+  "runs": 3,
+  "wall_clock_s": 133.2,
+  "cold_mean_s": 43.77,
+  "warm_mean_s": 44.71,
+  "results": [
+    {
+      "run": 1,
+      "elapsed_s": 43.77,
+      "latency_ms": 43762.7,
+      "success": true,
+      "phase_timings": {
+        "phase_a": 5.6,
+        "phase_b": 10.5,
+        "phase_b5": 4.2,
+        "phase_c": 23.5
+      },
+      "cache_disabled": true
+    },
+    {
+      "run": 2,
+      "elapsed_s": 58.54,
+      "latency_ms": 58536.3,
+      "success": true,
+      "phase_timings": {
+        "phase_a": 8.3,
+        "phase_b": 13.1,
+        "phase_b5": 8.2,
+        "phase_c": 28.9
+      },
+      "cache_disabled": false
+    },
+    {
+      "run": 3,
+      "elapsed_s": 30.88,
+      "latency_ms": 30882.9,
+      "success": true,
+      "phase_timings": {
+        "phase_a": 5.3,
+        "phase_b": 0.0,
+        "phase_b5": 3.1,
+        "phase_c": 22.5
+      },
+      "cache_disabled": false
+    }
+  ]
+}

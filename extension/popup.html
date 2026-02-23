@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=420">
+  <title>Lead Enrichment</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Not on LinkedIn -->
+  <div id="not-linkedin" class="state-screen hidden">
+    <div class="empty-icon">&#128279;</div>
+    <p>Navigate to a LinkedIn profile to enrich</p>
+    <p class="subtext">Works on linkedin.com/in/* pages</p>
+  </div>
+
+  <!-- Main content -->
+  <div id="main-content" class="hidden">
+    <!-- Header -->
+    <div id="header" class="section">
+      <div class="header-row">
+        <div>
+          <h1 id="person-name" class="skeleton-text">Loading...</h1>
+          <p id="person-company" class="subtitle skeleton-text"></p>
+        </div>
+        <div class="badges">
+          <span id="badge-cached" class="badge badge-cached hidden">Cached</span>
+          <span id="badge-latency" class="badge badge-latency hidden"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Use case toggle + enrich button -->
+    <div id="use-case-bar" class="section">
+      <div class="toggle-group">
+        <button class="toggle-btn active" data-use-case="sales">Sales</button>
+        <button class="toggle-btn" data-use-case="recruiting">Recruiting</button>
+        <button class="toggle-btn" data-use-case="job_search">Job Search</button>
+      </div>
+      <button id="btn-enrich" class="btn-primary">Enrich</button>
+    </div>
+
+    <!-- Progress -->
+    <div id="progress-section" class="section hidden">
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+      <p id="progress-text" class="progress-label">Starting...</p>
+    </div>
+
+    <!-- Role & Bio -->
+    <div id="section-bio" class="section card hidden">
+      <h2>About</h2>
+      <p id="profile-role"></p>
+      <p id="profile-bio" class="text-muted"></p>
+      <div id="profile-location" class="detail-row hidden">
+        <span class="label">Location</span>
+        <span id="location-value"></span>
+      </div>
+    </div>
+
+    <!-- Email -->
+    <div id="section-email" class="section card hidden">
+      <h2>Email</h2>
+      <div class="email-row">
+        <span id="email-value" class="email-text"></span>
+        <span id="email-confidence" class="badge"></span>
+        <span id="email-source" class="badge badge-muted"></span>
+        <button id="btn-copy-email" class="btn-icon" title="Copy email">&#128203;</button>
+      </div>
+    </div>
+
+    <!-- GitHub -->
+    <div id="section-github" class="section card hidden">
+      <h2>GitHub</h2>
+      <div class="github-grid">
+        <div class="stat">
+          <span class="stat-value" id="gh-repos">-</span>
+          <span class="stat-label">Repos</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="gh-followers">-</span>
+          <span class="stat-label">Followers</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="gh-activity">-</span>
+          <span class="stat-label">Activity</span>
+        </div>
+      </div>
+      <div id="gh-languages" class="tag-list"></div>
+      <a id="gh-link" class="link" href="#" target="_blank">View Profile</a>
+    </div>
+
+    <!-- News -->
+    <div id="section-news" class="section card hidden">
+      <h2>Recent News</h2>
+      <ul id="news-list" class="news-list"></ul>
+    </div>
+
+    <!-- Talking Points -->
+    <div id="section-talking-points" class="section card hidden">
+      <div class="section-header">
+        <h2>Talking Points</h2>
+        <button id="btn-copy-points" class="btn-icon" title="Copy all">&#128203;</button>
+      </div>
+      <ol id="points-list" class="points-list"></ol>
+    </div>
+
+    <!-- Errors -->
+    <div id="section-errors" class="section hidden">
+      <div id="error-message" class="error-box"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
