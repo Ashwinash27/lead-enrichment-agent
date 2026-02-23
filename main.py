@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 
 from agent.orchestrator import enrich_lead, enrich_lead_streaming
 from agent.schemas import EnrichRequest, EnrichResponse
+from agent import semantic_cache
 from config import CORS_ORIGINS, ENRICHMENT_API_KEY
 
 logging.basicConfig(
@@ -82,6 +83,21 @@ async def enrich_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.delete("/cache")
+async def delete_cache(
+    request: Request,
+    name: str = Query(..., max_length=200),
+    company: str = Query(..., max_length=200),
+    use_case: str = Query("", max_length=50),
+):
+    """Delete a cached enrichment result."""
+    _check_api_key(request)
+    deleted = await semantic_cache.delete(name, company, use_case)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Cache entry not found or cache disabled")
+    return {"deleted": True, "name": name, "company": company, "use_case": use_case or "all"}
 
 
 if __name__ == "__main__":

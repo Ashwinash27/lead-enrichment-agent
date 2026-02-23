@@ -189,3 +189,36 @@ async def store(
 
     except Exception as e:
         logger.warning(f"[{trace_id}] Semantic cache store failed: {e}")
+
+
+async def delete(name: str, company: str, use_case: str = "") -> bool:
+    """Delete a cached entry by name/company/use_case. Returns True if deleted."""
+    if not _enabled():
+        return False
+
+    try:
+        await _ensure_collection()
+        qdrant, _ = await _clients()
+
+        if use_case:
+            # Delete specific use_case entry
+            point_id = _point_id(name, company, use_case)
+            await qdrant.delete(
+                collection_name=COLLECTION,
+                points_selector=[point_id],
+            )
+            logger.info(f"Deleted cache entry for '{name}' @ '{company}' ({use_case})")
+        else:
+            # Delete all use_case variants
+            for uc in ("sales", "recruiting", "job_search"):
+                point_id = _point_id(name, company, uc)
+                await qdrant.delete(
+                    collection_name=COLLECTION,
+                    points_selector=[point_id],
+                )
+            logger.info(f"Deleted all cache entries for '{name}' @ '{company}'")
+        return True
+
+    except Exception as e:
+        logger.warning(f"Cache delete failed for '{name}' @ '{company}': {e}")
+        return False
