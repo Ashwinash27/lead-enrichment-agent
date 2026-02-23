@@ -26,7 +26,9 @@ async def enrich_lead(request: EnrichRequest) -> EnrichResponse:
     })
 
     # ── Semantic cache check ─────────────────────────────────────────
-    cached = await semantic_cache.lookup(request.name, request.company, trace_id)
+    cached = await semantic_cache.lookup(
+        request.name, request.company, trace_id, use_case=request.use_case
+    )
     if cached is not None:
         cached.trace_id = trace_id
         cached.latency_ms = round((time.time() - t0) * 1000, 1)
@@ -99,7 +101,7 @@ async def enrich_lead_streaming(
     })
 
     # ── Semantic cache check ─────────────────────────────────────────
-    cached = await semantic_cache.lookup(name, company, trace_id)
+    cached = await semantic_cache.lookup(name, company, trace_id, use_case=use_case)
     if cached is not None:
         cached.trace_id = trace_id
         cached.latency_ms = round((time.time() - t0) * 1000, 1)

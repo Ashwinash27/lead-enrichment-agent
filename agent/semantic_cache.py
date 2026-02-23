@@ -69,8 +69,8 @@ def _normalize(name: str, company: str) -> str:
     return f"{name.strip().lower()} {company.strip().lower()}"
 
 
-def _point_id(name: str, company: str) -> str:
-    normalized = f"{name.strip().lower()}:{company.strip().lower()}"
+def _point_id(name: str, company: str, use_case: str = "") -> str:
+    normalized = f"{name.strip().lower()}:{company.strip().lower()}:{use_case.strip().lower()}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, normalized))
 
 
@@ -83,11 +83,15 @@ async def _embed(text: str) -> list[float]:
 # ── Public API ───────────────────────────────────────────────────────────
 
 
-async def lookup(name: str, company: str, trace_id: str) -> EnrichResponse | None:
+async def lookup(
+    name: str, company: str, trace_id: str, use_case: str = "sales"
+) -> EnrichResponse | None:
     if not _enabled():
         return None
 
     try:
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+
         await _ensure_collection()
         query_text = _normalize(name, company)
         embedding = await _embed(query_text)
@@ -98,6 +102,14 @@ async def lookup(name: str, company: str, trace_id: str) -> EnrichResponse | Non
             query=embedding,
             limit=1,
             score_threshold=SEMANTIC_CACHE_THRESHOLD,
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="use_case",
+                        match=MatchValue(value=use_case),
+                    )
+                ]
+            ),
         )
         results = response.points
 
@@ -142,7 +154,7 @@ async def store(
         await _ensure_collection()
         query_text = _normalize(request.name, request.company)
         embedding = await _embed(query_text)
-        point_id = _point_id(request.name, request.company)
+        point_id = _point_id(request.name, request.company, request.use_case)
 
         point = PointStruct(
             id=point_id,
