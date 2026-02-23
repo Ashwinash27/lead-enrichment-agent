@@ -8,3 +8,7 @@ python-dotenv
 # duckduckgo-search  -- replaced by Serper (Google search via API)
 playwright
 dnspython
+langgraph
+qdrant-client
+openai
+langfuse

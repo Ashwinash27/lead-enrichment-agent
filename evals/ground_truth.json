@@ -1,0 +1,196 @@
+{
+  "cases": [
+    {
+      "id": "guillermo-rauch",
+      "name": "Guillermo Rauch",
+      "company": "Vercel",
+      "use_case": "sales",
+      "expected": {
+        "exact": {
+          "github_username": "rauchg"
+        },
+        "contains": {
+          "role": ["CEO", "Founder"],
+          "company": ["Vercel"]
+        },
+        "non_empty": ["bio", "skills", "talking_points", "name"],
+        "list_min_length": {
+          "skills": 2,
+          "talking_points": 3,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "dhh",
+      "name": "David Heinemeier Hansson",
+      "company": "37signals",
+      "use_case": "sales",
+      "expected": {
+        "exact": {
+          "github_username": "dhh"
+        },
+        "contains": {
+          "role": ["CTO", "Creator", "Founder", "Partner"],
+          "company": ["37signals", "Basecamp"]
+        },
+        "non_empty": ["bio", "skills", "name"],
+        "list_min_length": {
+          "skills": 2,
+          "talking_points": 3,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "mitchell-hashimoto",
+      "name": "Mitchell Hashimoto",
+      "company": "Ghostty",
+      "use_case": "recruiting",
+      "expected": {
+        "exact": {
+          "github_username": "mitchellh"
+        },
+        "contains": {
+          "name": ["Mitchell"]
+        },
+        "non_empty": ["bio", "skills", "name"],
+        "list_min_length": {
+          "skills": 2,
+          "talking_points": 3,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "satya-nadella",
+      "name": "Satya Nadella",
+      "company": "Microsoft",
+      "use_case": "sales",
+      "expected": {
+        "exact": {},
+        "contains": {
+          "role": ["CEO", "Chairman"],
+          "company": ["Microsoft"]
+        },
+        "non_empty": ["bio", "name", "role"],
+        "list_min_length": {
+          "talking_points": 3,
+          "recent_news": 1,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "sarah-drasner",
+      "name": "Sarah Drasner",
+      "company": "Google",
+      "use_case": "recruiting",
+      "expected": {
+        "exact": {
+          "github_username": "sdras"
+        },
+        "contains": {
+          "name": ["Sarah"]
+        },
+        "non_empty": ["bio", "skills", "name"],
+        "list_min_length": {
+          "skills": 2,
+          "talking_points": 3,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "kelsey-hightower",
+      "name": "Kelsey Hightower",
+      "company": "Google",
+      "use_case": "job_search",
+      "expected": {
+        "exact": {
+          "github_username": "kelseyhightower"
+        },
+        "contains": {
+          "name": ["Kelsey"]
+        },
+        "non_empty": ["bio", "name"],
+        "list_min_length": {
+          "skills": 1,
+          "talking_points": 3,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "theo-browne",
+      "name": "Theo Browne",
+      "company": "Ping.gg",
+      "use_case": "sales",
+      "expected": {
+        "exact": {
+          "github_username": "t3dotgg"
+        },
+        "contains": {
+          "name": ["Theo"]
+        },
+        "non_empty": ["bio", "name"],
+        "list_min_length": {
+          "talking_points": 3,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "fictional-person",
+      "name": "Zxyqwp Kmnrst",
+      "company": "NonexistentCorp9999",
+      "use_case": "sales",
+      "expected": {
+        "exact": {},
+        "contains": {},
+        "non_empty": ["name"],
+        "list_min_length": {},
+        "expect_graceful_failure": true
+      }
+    },
+    {
+      "id": "julia-evans",
+      "name": "Julia Evans",
+      "company": "Mess With DNS",
+      "use_case": "recruiting",
+      "expected": {
+        "exact": {
+          "github_username": "jvns"
+        },
+        "contains": {
+          "name": ["Julia"]
+        },
+        "non_empty": ["bio", "name"],
+        "list_min_length": {
+          "skills": 1,
+          "talking_points": 3,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "arvid-kahl",
+      "name": "Arvid Kahl",
+      "company": "",
+      "use_case": "sales",
+      "expected": {
+        "exact": {
+          "github_username": "arvidkahl"
+        },
+        "contains": {
+          "name": ["Arvid"]
+        },
+        "non_empty": ["bio", "name"],
+        "list_min_length": {
+          "talking_points": 3,
+          "sources": 1
+        }
+      }
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import httpx
 
 from agent.cache import cache
 from agent.schemas import ToolResult
+from agent.utils import retry_with_backoff
 from config import GITHUB_TOKEN, HTTP_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -106,27 +107,20 @@ class GitHubTool:
                 return login
         return None
 
+    @retry_with_backoff()
     async def _try_search(
         self, client: httpx.AsyncClient, query: str
     ) -> str | None:
-        for attempt in range(3):
-            try:
-                resp = await self._request(
-                    client,
-                    f"{GITHUB_API}/search/users",
-                    params={"q": query, "per_page": 3},
-                )
-                resp.raise_for_status()
-                items = resp.json().get("items", [])
-                return items[0]["login"] if items else None
-            except Exception as e:
-                if attempt == 2:
-                    raise
-                wait = 2**attempt
-                logger.warning(f"GitHub search retry {attempt+1}: {e}")
-                await asyncio.sleep(wait)
-        return None
+        resp = await self._request(
+            client,
+            f"{GITHUB_API}/search/users",
+            params={"q": query, "per_page": 3},
+        )
+        resp.raise_for_status()
+        items = resp.json().get("items", [])
+        return items[0]["login"] if items else None
 
+    @retry_with_backoff()
     async def _get_profile(
         self, client: httpx.AsyncClient, login: str
     ) -> dict:
@@ -134,6 +128,7 @@ class GitHubTool:
         resp.raise_for_status()
         return resp.json()
 
+    @retry_with_backoff()
     async def _get_repos(
         self, client: httpx.AsyncClient, login: str
     ) -> list[dict]:
@@ -145,32 +140,44 @@ class GitHubTool:
         resp.raise_for_status()
         return resp.json()
 
+    @retry_with_backoff()
+    async def _fetch_starred(
+        self, client: httpx.AsyncClient, login: str
+    ) -> list[dict]:
+        resp = await self._request(
+            client,
+            f"{GITHUB_API}/users/{login}/starred",
+            params={"sort": "created", "per_page": 20},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def _get_starred(
         self, client: httpx.AsyncClient, login: str
     ) -> list[dict]:
         try:
-            resp = await self._request(
-                client,
-                f"{GITHUB_API}/users/{login}/starred",
-                params={"sort": "created", "per_page": 20},
-            )
-            resp.raise_for_status()
-            return resp.json()
+            return await self._fetch_starred(client, login)
         except Exception as e:
             logger.warning(f"GitHub starred fetch failed: {e}")
             return []
+
+    @retry_with_backoff()
+    async def _fetch_events(
+        self, client: httpx.AsyncClient, login: str
+    ) -> list[dict]:
+        resp = await self._request(
+            client,
+            f"{GITHUB_API}/users/{login}/events/public",
+            params={"per_page": 30},
+        )
+        resp.raise_for_status()
+        return resp.json()
 
     async def _get_events(
         self, client: httpx.AsyncClient, login: str
     ) -> list[dict]:
         try:
-            resp = await self._request(
-                client,
-                f"{GITHUB_API}/users/{login}/events/public",
-                params={"per_page": 30},
-            )
-            resp.raise_for_status()
-            return resp.json()
+            return await self._fetch_events(client, login)
         except Exception as e:
             logger.warning(f"GitHub events fetch failed: {e}")
             return []

@@ -8,6 +8,7 @@ import httpx
 
 from agent.cache import cache
 from agent.schemas import ToolResult
+from agent.utils import retry_with_backoff
 from config import SERPER_API_KEY, HTTP_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,22 @@ class SerperNewsTool:
             latency_ms=(time.time() - t0) * 1000,
         )
 
+    @retry_with_backoff()
+    async def _fetch_news(self, query: str) -> dict:
+        """Raw HTTP call to Serper news API — retried on transient errors."""
+        headers = {
+            "X-API-KEY": SERPER_API_KEY,
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            resp = await client.post(
+                SERPER_NEWS_URL,
+                json={"q": query, "num": 10},
+                headers=headers,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     async def _search_news(self, query: str) -> tuple[str, list[str]]:
         cache_key = f"news:{query}"
         cached = await cache.get(cache_key)
@@ -79,19 +96,7 @@ class SerperNewsTool:
             return cached, []
 
         try:
-            headers = {
-                "X-API-KEY": SERPER_API_KEY,
-                "Content-Type": "application/json",
-            }
-            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-                resp = await client.post(
-                    SERPER_NEWS_URL,
-                    json={"q": query, "num": 10},
-                    headers=headers,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-
+            data = await self._fetch_news(query)
             text, urls = self._format_results(query, data)
             await cache.set(cache_key, text, ttl=300)
             return text, urls

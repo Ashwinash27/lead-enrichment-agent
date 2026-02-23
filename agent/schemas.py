@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class EnrichRequest(BaseModel):
@@ -80,6 +80,19 @@ class EnrichedProfile(BaseModel):
     community_highlights: list[str] = Field(default_factory=list)
     media_appearances: list[str] = Field(default_factory=list)
     interests: list[str] = Field(default_factory=list)
+
+    @field_validator(
+        "conflicts", "recent_news", "community_highlights",
+        "media_appearances", "interests", "disambiguation_signals",
+        "education", "previous_companies", "notable_achievements",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_str_list(cls, v):
+        """Coerce non-string items (dicts from Haiku) to strings."""
+        if not isinstance(v, list):
+            return v
+        return [str(item) if not isinstance(item, str) else item for item in v]
 
 
 class EnrichResponse(BaseModel):

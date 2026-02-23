@@ -8,6 +8,7 @@ import httpx
 
 from agent.cache import cache
 from agent.schemas import ToolResult
+from agent.utils import retry_with_backoff
 from config import HUNTER_API_KEY, HTTP_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -267,6 +268,23 @@ class EmailPipeline:
             return False
 
     # -- Layer 4: Hunter.io --
+    @retry_with_backoff()
+    async def _fetch_hunter_domain(
+        self, client: httpx.AsyncClient, domain: str, first: str, last: str,
+    ) -> dict:
+        """Single Hunter.io API call — retried on transient errors."""
+        resp = await client.get(
+            HUNTER_API,
+            params={
+                "domain": domain,
+                "first_name": first,
+                "last_name": last,
+                "api_key": HUNTER_API_KEY,
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def _layer_hunter(
         self, first: str, last: str, full_name: str, company: str,
         domains: list[str],
@@ -283,26 +301,22 @@ class EmailPipeline:
         try:
             async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
                 for domain in domains[:2]:  # Conserve credits
-                    resp = await client.get(
-                        HUNTER_API,
-                        params={
-                            "domain": domain,
-                            "first_name": first,
-                            "last_name": last,
-                            "api_key": HUNTER_API_KEY,
-                        },
-                    )
-                    resp.raise_for_status()
-                    data = resp.json().get("data", {})
-                    email = data.get("email", "")
+                    try:
+                        data = await self._fetch_hunter_domain(
+                            client, domain, first, last,
+                        )
+                    except Exception:
+                        continue
+                    email_data = data.get("data", {})
+                    email = email_data.get("email", "")
 
                     if email:
-                        score = data.get("score", 0)
+                        score = email_data.get("score", 0)
                         confidence = 0.95 if score >= 90 else 0.8
                         summary = (
                             f"Email: {email}\n"
                             f"Confidence: {score}%\n"
-                            f"Type: {data.get('type', 'unknown')}\n"
+                            f"Type: {email_data.get('type', 'unknown')}\n"
                             f"Domain: {domain}"
                         )
                         await cache.set(cache_key, summary, ttl=300)

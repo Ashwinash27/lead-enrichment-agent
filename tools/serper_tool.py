@@ -8,6 +8,7 @@ import httpx
 
 from agent.cache import cache
 from agent.schemas import ToolResult
+from agent.utils import retry_with_backoff
 from config import SERPER_API_KEY, HTTP_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ class SerperSearchTool:
             logger.error(f"Serper error for '{query}': {e}")
             return None, [], f"Query '{query}': {e}"
 
+    @retry_with_backoff()
     async def _search(self, query: str) -> tuple[str, list[str]]:
         """Execute a single Serper search and return formatted text + urls."""
         headers = {

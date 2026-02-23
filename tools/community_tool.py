@@ -9,6 +9,7 @@ import httpx
 
 from agent.cache import cache
 from agent.schemas import ToolResult
+from agent.utils import retry_with_backoff
 from config import SERPER_API_KEY, HTTP_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,22 @@ class CommunityActivityTool:
             logger.error(f"HN search error: {e}")
             return ""
 
+    @retry_with_backoff()
+    async def _fetch_reddit(self, query: str) -> dict:
+        """Raw HTTP call to Serper for Reddit search — retried on transient errors."""
+        headers = {
+            "X-API-KEY": SERPER_API_KEY,
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            resp = await client.post(
+                SERPER_SEARCH_URL,
+                json={"q": query, "num": 5},
+                headers=headers,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     async def _search_reddit(self, name: str, company: str) -> str:
         """Search Reddit via Serper for mentions of person/company."""
         if not SERPER_API_KEY:
@@ -130,19 +147,7 @@ class CommunityActivityTool:
 
         try:
             query = f"site:reddit.com {name} {company}".strip()
-            headers = {
-                "X-API-KEY": SERPER_API_KEY,
-                "Content-Type": "application/json",
-            }
-
-            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-                resp = await client.post(
-                    SERPER_SEARCH_URL,
-                    json={"q": query, "num": 5},
-                    headers=headers,
-                )
-                resp.raise_for_status()
-                data = resp.json()
+            data = await self._fetch_reddit(query)
 
             lines: list[str] = []
             organic = data.get("organic", [])

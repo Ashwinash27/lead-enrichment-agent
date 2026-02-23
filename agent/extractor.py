@@ -3,18 +3,24 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time as _time
 from datetime import date
 
 from anthropic import AsyncAnthropic
 
+from agent.observe import log_generation
 from agent.schemas import EnrichedProfile, ToolResult
+from agent.utils import llm_create
 from config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, EXTRACTOR_MODEL
 
 logger = logging.getLogger(__name__)
 
 client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
-MAX_CONTEXT = 30000
+MAX_CONTEXT = 20000
+PER_TOOL_MAX = 3000
+INITIAL_MAX_TOKENS = 4000
+RETRY_MAX_TOKENS = 6000
 
 
 def _build_system_prompt() -> str:
@@ -166,6 +172,102 @@ def _repair_truncated_json_object(raw: str) -> dict | None:
     return None
 
 
+def _build_combined(tool_results: list[ToolResult]) -> str:
+    """Build truncated combined text from tool results (Approach 1)."""
+    sections: list[str] = []
+    for tr in tool_results:
+        if tr.success and tr.raw_data:
+            data = tr.raw_data[:PER_TOOL_MAX] if len(tr.raw_data) > PER_TOOL_MAX else tr.raw_data
+            sections.append(f"=== {tr.tool_name} ===\n{data}")
+
+    combined = "\n\n".join(sections)
+    if len(combined) > MAX_CONTEXT:
+        combined = combined[:MAX_CONTEXT]
+    return combined
+
+
+def _has_github_data(tool_results: list[ToolResult]) -> bool:
+    """Check if any github tool result returned data."""
+    return any(tr.tool_name == "github" and tr.success and tr.raw_data for tr in tool_results)
+
+
+def _needs_retry(profile: EnrichedProfile, tool_results: list[ToolResult]) -> bool:
+    """Approach 2: Check if critical fields are empty despite having tool data."""
+    successful = sum(1 for tr in tool_results if tr.success and tr.raw_data)
+    if successful < 2:
+        return False
+
+    empty_critical = 0
+    if not profile.role:
+        empty_critical += 1
+    if not profile.bio:
+        empty_critical += 1
+    if not profile.skills:
+        empty_critical += 1
+    if _has_github_data(tool_results) and (profile.github is None or not profile.github.username):
+        empty_critical += 1
+    if not profile.sources:
+        empty_critical += 1
+
+    return empty_critical > 2
+
+
+async def _extract_once(
+    name: str, company: str, combined: str, trace_id: str,
+    location: str, max_tokens: int,
+) -> EnrichedProfile:
+    """Single extraction attempt with the given max_tokens."""
+    target = f"{name} at {company}"
+    if location:
+        target += f" in {location}"
+    user_msg = (
+        f"Extract a structured profile for: {target}\n\n"
+        f"Raw research data:\n{combined}"
+    )
+
+    system_prompt = _build_system_prompt()
+
+    logger.info(
+        f"[{trace_id}] Extractor context: system={len(system_prompt)} chars, "
+        f"user={len(user_msg)} chars, total={len(system_prompt) + len(user_msg)} chars, "
+        f"max_tokens={max_tokens}"
+    )
+
+    t0_llm = _time.time()
+    response = await llm_create(
+        client,
+        model=EXTRACTOR_MODEL,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_msg}],
+    )
+    log_generation(
+        trace_id, "extractor", EXTRACTOR_MODEL,
+        response.usage.input_tokens, response.usage.output_tokens,
+        (_time.time() - t0_llm) * 1000,
+    )
+
+    raw = response.content[0].text.strip()
+    raw = re.sub(r"^```json\s*", "", raw)
+    raw = re.sub(r"\s*```$", "", raw)
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning(f"[{trace_id}] Extractor JSON truncated, attempting repair")
+        data = _repair_truncated_json_object(raw)
+        if data is None:
+            logger.error(f"[{trace_id}] Extractor JSON repair failed")
+            return EnrichedProfile(name=name, company=company)
+
+    try:
+        profile = EnrichedProfile.model_validate(data)
+    except Exception as e:
+        logger.warning(f"[{trace_id}] Extractor validation error: {e}")
+        return EnrichedProfile(name=name, company=company)
+    return profile
+
+
 async def extract(
     name: str,
     company: str,
@@ -174,58 +276,31 @@ async def extract(
     location: str = "",
 ) -> EnrichedProfile:
     try:
-        sections: list[str] = []
-        for tr in tool_results:
-            if tr.success and tr.raw_data:
-                data = tr.raw_data[:4000] if len(tr.raw_data) > 4000 else tr.raw_data
-                sections.append(f"=== {tr.tool_name} ===\n{data}")
-
-        combined = "\n\n".join(sections)
-        if len(combined) > MAX_CONTEXT:
-            combined = combined[:MAX_CONTEXT]
+        combined = _build_combined(tool_results)
 
         if not combined.strip():
             logger.warning(f"[{trace_id}] No tool data to extract from")
             return EnrichedProfile(name=name, company=company)
 
-        target = f"{name} at {company}"
-        if location:
-            target += f" in {location}"
-        user_msg = (
-            f"Extract a structured profile for: {target}\n\n"
-            f"Raw research data:\n{combined}"
+        # First attempt
+        profile = await _extract_once(
+            name, company, combined, trace_id, location, INITIAL_MAX_TOKENS,
         )
-
-        system_prompt = _build_system_prompt()
-
-        logger.info(
-            f"[{trace_id}] Extractor context: system={len(system_prompt)} chars, "
-            f"user={len(user_msg)} chars, total={len(system_prompt) + len(user_msg)} chars"
-        )
-
-        response = await client.messages.create(
-            model=EXTRACTOR_MODEL,
-            max_tokens=4000,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_msg}],
-        )
-
-        raw = response.content[0].text.strip()
-        raw = re.sub(r"^```json\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
-
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            # Haiku may truncate JSON — try to repair by closing open braces
-            logger.warning(f"[{trace_id}] Extractor JSON truncated, attempting repair")
-            data = _repair_truncated_json_object(raw)
-            if data is None:
-                logger.error(f"[{trace_id}] Extractor JSON repair failed")
-                return EnrichedProfile(name=name, company=company)
-
-        profile = EnrichedProfile.model_validate(data)
         logger.info(f"[{trace_id}] Extraction complete")
+
+        # Approach 2: Retry with higher max_tokens if critical fields are empty
+        if _needs_retry(profile, tool_results):
+            logger.warning(
+                f"[{trace_id}] Extraction retry — critical fields empty "
+                f"(role={bool(profile.role)}, bio={bool(profile.bio)}, "
+                f"skills={len(profile.skills)}, github={profile.github is not None and bool(profile.github.username)}, "
+                f"sources={len(profile.sources)}). Retrying with max_tokens={RETRY_MAX_TOKENS}"
+            )
+            profile = await _extract_once(
+                name, company, combined, trace_id, location, RETRY_MAX_TOKENS,
+            )
+            logger.info(f"[{trace_id}] Extraction retry complete")
+
         return profile
 
     except Exception as e:
@@ -235,7 +310,9 @@ async def extract(
 
 async def generate_narrative(profile: EnrichedProfile, trace_id: str) -> str:
     try:
-        response = await client.messages.create(
+        t0_llm = _time.time()
+        response = await llm_create(
+            client,
             model=ANTHROPIC_MODEL,
             max_tokens=500,
             system=(
@@ -245,6 +322,11 @@ async def generate_narrative(profile: EnrichedProfile, trace_id: str) -> str:
                 "Do not fabricate — only use information from the provided profile data."
             ),
             messages=[{"role": "user", "content": profile.model_dump_json()}],
+        )
+        log_generation(
+            trace_id, "narrative", ANTHROPIC_MODEL,
+            response.usage.input_tokens, response.usage.output_tokens,
+            (_time.time() - t0_llm) * 1000,
         )
         return response.content[0].text.strip()
     except Exception as e:
@@ -332,11 +414,18 @@ async def generate_talking_points(
         user_msg = f"Person: {name} at {company}\n\nRaw research data:\n{combined}"
 
         system = _TALKING_POINTS_SYSTEM.get(use_case, _TALKING_POINTS_SYSTEM["sales"])
-        response = await client.messages.create(
+        t0_llm = _time.time()
+        response = await llm_create(
+            client,
             model=ANTHROPIC_MODEL,
             max_tokens=700,
             system=system,
             messages=[{"role": "user", "content": user_msg}],
+        )
+        log_generation(
+            trace_id, "talking_points", ANTHROPIC_MODEL,
+            response.usage.input_tokens, response.usage.output_tokens,
+            (_time.time() - t0_llm) * 1000,
         )
         raw = response.content[0].text.strip()
         raw = re.sub(r"^```json\s*", "", raw)

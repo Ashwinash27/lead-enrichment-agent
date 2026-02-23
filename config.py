@@ -11,8 +11,15 @@ GITHUB_TOKEN: str = "" if _raw_github_token.startswith("ghp_...") else _raw_gith
 HUNTER_API_KEY: str = os.getenv("HUNTER_API_KEY", "")
 SERPER_API_KEY: str = os.getenv("SERPER_API_KEY", "")
 SCRAPERAPI_KEY: str = os.getenv("SCRAPERAPI_KEY", "")
+QDRANT_URL: str = os.getenv("QDRANT_URL", "")
+QDRANT_API_KEY: str = os.getenv("QDRANT_API_KEY", "")
+OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+SEMANTIC_CACHE_THRESHOLD: float = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.92"))
 PROXY_LIST: list[str] = [
     p.strip() for p in os.getenv("PROXY_LIST", "").split(",") if p.strip()
 ]
 PLAYWRIGHT_TIMEOUT: int = int(os.getenv("PLAYWRIGHT_TIMEOUT", "15000"))
 HTTP_TIMEOUT: int = int(os.getenv("HTTP_TIMEOUT", "15"))
+LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")

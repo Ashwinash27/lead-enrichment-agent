@@ -97,17 +97,51 @@ The Hunter.io integration uses domains from two sources: the planner's `urls_to_
 
 ---
 
-## Why Not LangChain / CrewAI / AutoGen
+## Pipeline Graph
 
-These frameworks solve a real problem — orchestrating multi-step LLM workflows with tool use. But they add abstraction layers that hurt more than they help at this scale:
+The orchestrator uses LangGraph's `StateGraph` with fan-out/fan-in edges to express the pipeline topology. Phase A fans out from START into two parallel branches (planner + deterministic tools), fans in at the planner-dependent node, then flows sequentially through email → extract → output.
 
-- **LangChain**: Would wrap our two Claude calls in chains, our tools in LangChain tools, our prompts in prompt templates. For two calls, that's pure overhead. Debugging means reading LangChain internals, not our code.
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	planner_node(planner_node)
+	deterministic_tools_node(deterministic_tools_node)
+	planner_dependent_node(planner_dependent_node)
+	email_pipeline_node(email_pipeline_node)
+	extractor_node(extractor_node)
+	output_node(output_node)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> deterministic_tools_node;
+	__start__ --> planner_node;
+	deterministic_tools_node --> planner_dependent_node;
+	email_pipeline_node --> extractor_node;
+	extractor_node --> output_node;
+	planner_dependent_node --> email_pipeline_node;
+	planner_node --> planner_dependent_node;
+	output_node --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+```
 
-- **CrewAI/AutoGen**: Multi-agent frameworks where agents talk to each other. We have one planner and one extractor — they don't need to negotiate. The "crew" would be two agents that run sequentially, which is just... two function calls.
+---
 
-- **What we actually need**: `anthropic.AsyncAnthropic`, `asyncio.gather`, and Pydantic. The 50 lines of orchestrator code are simpler to debug, modify, and explain than any framework abstraction.
+## Why LangGraph (and Not Raw asyncio)
 
-The right time to adopt a framework is when you have >5 LLM calls per request with branching logic, or when you need features like memory/conversation history across calls. We have neither.
+The original orchestrator used raw `asyncio.gather()` with manual fan-out/fan-in logic. LangGraph replaces the control flow with a declarative `StateGraph` while preserving every line of business logic:
+
+- **Same two LLM calls**: planner + extractor. No framework overhead on the LLM path.
+- **Same concurrent execution**: `asyncio.gather()` inside nodes for tool parallelism. LangGraph handles the inter-node parallelism (Phase A fan-out).
+- **Reducer pattern**: `Annotated[list[ToolResult], operator.add]` lets parallel nodes append to shared state without overwriting — solving the concurrent write problem that raw asyncio handled with manual list merging.
+- **Declarative topology**: The graph edges make the pipeline structure visible and testable. Adding a new phase is "add a node + edge" instead of restructuring nested gather calls.
+- **Zero checkpointer**: Each `ainvoke()` is stateless — no persistence layer, no thread IDs.
+
+The legacy orchestrator is preserved at `agent/orchestrator_legacy.py` for rollback.
 
 ---
 

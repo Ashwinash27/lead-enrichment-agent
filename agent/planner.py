@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 
 from anthropic import AsyncAnthropic
 
+from agent.observe import log_generation
 from agent.schemas import PlannerDecision
 from agent.tool_protocol import registry
+from agent.utils import llm_create
 from config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
 
 logger = logging.getLogger(__name__)
@@ -52,11 +55,18 @@ async def plan(name: str, company: str, trace_id: str, location: str = "") -> Pl
         if location:
             user_msg += f"\nLocation: {location}"
 
-        response = await client.messages.create(
+        t0_llm = time.time()
+        response = await llm_create(
+            client,
             model=ANTHROPIC_MODEL,
             max_tokens=500,
             system=prompt,
             messages=[{"role": "user", "content": user_msg}],
+        )
+        log_generation(
+            trace_id, "planner", ANTHROPIC_MODEL,
+            response.usage.input_tokens, response.usage.output_tokens,
+            (time.time() - t0_llm) * 1000,
         )
 
         raw = response.content[0].text.strip()

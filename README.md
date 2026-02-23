@@ -1,182 +1,183 @@
-# Lead Research Agent
+# Lead Enrichment Agent
 
-## What Is This?
+AI-powered lead research that turns a name + company into a structured profile with talking points in under 45 seconds.
 
-Sales teams, recruiters, and founders spend hours manually researching leads — clicking through LinkedIn, Googling names, checking GitHub profiles, reading company pages. This project automates that entire workflow.
+## How It Works
 
-Give it a person's name and company, and it returns a comprehensive, structured profile in seconds. It searches across multiple public sources simultaneously, pulls together everything it finds, and returns clean JSON with confidence scores so you know how much to trust each piece of data.
-
-**The problem it solves:** Manual lead research takes 10-15 minutes per person. This agent does it in under 40 seconds by running searches in parallel and using an LLM to extract structured data from raw search results.
-
-**How it works at a high level:**
-1. An LLM plans which sources to search (GitHub, web search, company websites, email finder)
-2. All searches run concurrently via asyncio
-3. A second LLM call extracts a structured profile from the combined raw results
-4. The output is a Pydantic-validated JSON profile with 15+ fields, confidence scores, and source-attributed findings
+Give it a person's name and company. It searches 7 public sources concurrently, extracts a structured JSON profile, and generates use-case-specific conversation starters — all through a single API call.
 
 ```
-POST /enrich {"name": "", "company": ""}
+POST /enrich {"name": "Guillermo Rauch", "company": "Vercel", "use_case": "sales"}
 
-→ Role, bio, education, skills, GitHub, LinkedIn, website,
-  confidence scores, source-attributed findings — all in structured JSON.
+-> Structured profile, confidence scores, 7 talking points, source-attributed findings
 ```
 
 ## Architecture
 
-```
-Client (POST /enrich) → {"name": "", "company": ""}
-    │
-    ▼
-FastAPI Server (main.py)
-    │  Started with: source venv/bin/activate && python3 main.py
-    │  Swagger UI: http://localhost:8000/docs
-    ▼
-Orchestrator (orchestrator.py)
-    │
-    ├── Step 1: PLANNER (Claude LLM call #1) 3-5s
-    │   └── Input: name + company + tool descriptions
-    │   └── Output: which tools, what queries, which URLs
-    │   └── Fallback: hardcoded plan if Claude fails
-    │
-    ├── Step 2: PARALLEL EXECUTION (asyncio.gather)  18-25s total
-    │
-    │   ┌─── Event Loop (main thread) ──────────────────────────┐
-    │   │                                                       │
-    │   │   GitHubTool ──── GitHub REST API ──── httpx (async)  │
-    │   │    1-2s                                               │
-    │   │                                                       │
-    │   │   HunterTool ──── Hunter.io API ───── httpx (async)   │
-    │   │    1-2s  Extracts domains from planner's URLs         │
-    │   │            sixtyfour.com → no email → try next        │
-    │   │            sixtyfour.ai → finds email → stop          │
-    │   │                                                       │
-    │   │   PlaywrightTool ─── DNS check first ─── then scrape  │
-    │   │    14-25s    sixtyfour.ai → DNS  → scrape             │
-    │   │              sixtyfour.io → DNS  → skip instantly     │
-    │   │                                                       │
-    │   │                                                       │
-    │   └───────────────────────────────────────────────────────┘
-    │   ┌─── Thread Pool (background threads) ──────────────────┐
-    │   │                                                       │
-    │   │   WebSearchTool ── DuckDuckGo ── run_in_executor()    │
-    │   │    3-4s  (sync library, blocks → runs in thread)      │
-    │   │                                                       │
-    │   │   DNS Check ────── socket.getaddrinfo() ── in thread  │
-    │   │    <0.1s  (blocking call → runs in thread)            │
-    │   │                                                       │
-    │   └───────────────────────────────────────────────────────┘
-    │
-    │   Event Loop + Thread Pool run SIMULTANEOUSLY
-    │   Total time = slowest tool (browser ~20s), not sum of all
-    │
-    ├── Step 3: EXTRACTOR (Claude LLM call #2)  13-15s
-    │   └── Input: all raw data from tools (truncated to 30k chars)
-    │   └── Output: structured JSON validated by Pydantic
-    │   └── Fallback: minimal profile (name + company) if fails
-    │
-    └── Response: EnrichResponse
-            ├── success: bool
-            ├── profile: EnrichedProfile (15+ fields)
-            ├── confidence: 0.0-1.0 per field
-            ├── findings: fact + source URL pairs
-            ├── sources_searched: ["github", "web_search", "browser", "hunter"]
-            ├── errors: [] (any tool failures listed)
-            └── latency_ms: ~27000-45000
+Two LLM calls per request. Everything in between is deterministic concurrent execution.
 
-Total: ~27-45 seconds | Cost: ~$0.01 | LLM calls: exactly 2
+```mermaid
+graph TD;
+  __start__([Input: name + company]):::first
+  planner_node(LLM Planner)
+  deterministic_tools_node(GitHub + News + Community)
+  planner_dependent_node(Web Search + Browser)
+  email_pipeline_node(Email Waterfall)
+  extractor_node(LLM Extractor + Talking Points)
+  output_node(Structured Response)
+  __end__([EnrichedProfile JSON]):::last
+  __start__ --> deterministic_tools_node;
+  __start__ --> planner_node;
+  deterministic_tools_node --> planner_dependent_node;
+  planner_node --> planner_dependent_node;
+  planner_dependent_node --> email_pipeline_node;
+  email_pipeline_node --> extractor_node;
+  extractor_node --> output_node;
+  output_node --> __end__;
+  classDef default fill:#f2f0ff,line-height:1.2
+  classDef first fill-opacity:0
+  classDef last fill:#bfb6fc
 ```
 
-See [DESIGN.md](DESIGN.md) for architecture decisions and tradeoffs.
+**Phase A** (concurrent): LLM planner runs in parallel with GitHub, news, and community tools
+**Phase B** (planner-dependent): Web search queries + browser scraping from planner output
+**Phase B.5**: 4-layer email waterfall (GitHub → regex → SMTP → Hunter.io)
+**Phase C** (concurrent): Profile extraction + talking points generation
 
-## Quick Start
+## Features
+
+- **7 data sources**: GitHub API, Serper web search, Serper news, HN/Reddit community, Playwright browser, SMTP verification, Hunter.io email
+- **4-layer email waterfall**: Tries 3 free methods before burning Hunter.io credits (25/month)
+- **Semantic cache**: Qdrant vector search with OpenAI embeddings — repeat lookups in ~2s
+- **LangGraph orchestration**: StateGraph with fan-out/fan-in for parallel execution
+- **3 use cases**: Sales, recruiting, and job search — each generates tailored talking points
+- **Eval framework**: 10 ground truth cases with automated scoring (exact match, contains, list checks)
+- **Retry with backoff**: Exponential retry (1s/2s/4s + jitter) on all API calls — only 5xx and timeouts, never 4xx
+- **Langfuse observability**: Per-node spans, LLM generation logging with token counts (graceful no-op when disabled)
+
+## Benchmarks
+
+Real numbers from the eval suite and benchmark runner.
+
+| Metric | Value |
+|--------|-------|
+| Eval accuracy | **100%** on 10 ground truth cases |
+| Avg latency (cold) | **39s** per enrichment |
+| Semantic cache hit | **~2s** (21x faster) |
+| Phase C (LLM extraction) | **22-29s** (bottleneck) |
+| Phase A (tools) | **2-6s** |
+| Success rate | **10/10** cases, 0 crashes |
+| Cost per request | **~$0.03** (2 LLM calls: Sonnet planner + Haiku extractor) |
+
+## Setup
 
 ```bash
+git clone <repo-url> && cd lead-enrichment-agent
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
 
 cp .env.example .env
-# Set ANTHROPIC_API_KEY in .env
+# Edit .env with your API keys
 ```
 
-**CLI:**
+### Required API Keys
+
+| Variable | Purpose | Free Tier |
+|----------|---------|-----------|
+| `ANTHROPIC_API_KEY` | Claude for planner + extractor | Pay-as-you-go |
+| `SERPER_API_KEY` | Google search + news | 2,500 free queries |
+| `GITHUB_TOKEN` | GitHub API (30 req/min vs 10) | Free |
+
+### Optional
+
+| Variable | Purpose |
+|----------|---------|
+| `HUNTER_API_KEY` | Email finder (Layer 4 fallback, 25/month free) |
+| `SCRAPERAPI_KEY` | Proxy for browser scraping |
+| `QDRANT_URL` + `QDRANT_API_KEY` + `OPENAI_API_KEY` | Semantic cache |
+| `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` | Observability dashboard |
+
+## Usage
+
+### CLI
 ```bash
-python test_agent.py "Guillermo Rauch" "Vercel"
+# Sales outreach
+python test_agent.py "Guillermo Rauch" "Vercel" "" "sales"
+
+# Recruiting
+python test_agent.py "Mitchell Hashimoto" "Ghostty" "" "recruiting"
+
+# Job search
+python test_agent.py "Kelsey Hightower" "Google" "" "job_search"
 ```
 
-**API server:**
+### API Server
 ```bash
 uvicorn main:app --reload
 
 curl -X POST http://localhost:8000/enrich \
   -H "Content-Type: application/json" \
-  -d '{"name": "Guillermo Rauch", "company": "Vercel"}'
+  -d '{"name": "Satya Nadella", "company": "Microsoft", "use_case": "sales"}'
 ```
 
-## Example Output
+### Eval Suite
+```bash
+# Run all 10 ground truth cases
+python -m evals.run_eval --no-judge
 
-```json
-{
-  "success": true,
-  "trace_id": "b7f3e2a91c04",
-  "profile": {
-    "name": "Guillermo Rauch",
-    "role": "CEO",
-    "company": "Vercel",
-    "location": "San Francisco, CA",
-    "bio": "CEO of Vercel, creator of Next.js and Socket.IO. Building the frontend cloud.",
-    "education": [],
-    "previous_companies": ["LearnBoost", "Cloudup"],
-    "github": {
-      "username": "rauchg",
-      "public_repos": 267,
-      "top_languages": ["JavaScript", "TypeScript", "Shell"]
-    },
-    "linkedin_url": "https://www.linkedin.com/in/guillermo-rauch",
-    "website": "https://rauchg.com",
-    "confidence": {
-      "name": 1.0,
-      "company": 1.0,
-      "role": 1.0,
-      "location": 0.9,
-      "email": 0.0,
-      "github": 1.0
-    },
-    "findings": [
-      {"fact": "Creator of Next.js, the React framework", "source": "github.com/rauchg"},
-      {"fact": "Vercel has raised over $300M in funding", "source": "crunchbase.com/organization/vercel"},
-      {"fact": "Created Socket.IO, one of the most popular real-time libraries", "source": "github.com/rauchg"}
-    ],
-    "sources": ["linkedin.com/in/guillermo-rauch", "github.com/rauchg", "vercel.com", "...5 more"]
-  },
-  "latency_ms": 32100
-}
+# Single case
+python -m evals.run_eval --case dhh
+
+# Benchmark (3 runs, cold + warm)
+python -m benchmarks.benchmark --runs 3
 ```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Orchestration | LangGraph StateGraph with fan-out/fan-in |
+| LLM | Claude Sonnet (planner, talking points) + Haiku (extractor) |
+| API framework | FastAPI + uvicorn |
+| Browser | Playwright (headless Chromium) |
+| Search | Serper.dev (Google Search + News API) |
+| Email | 4-layer waterfall: GitHub → regex → SMTP → Hunter.io |
+| Caching | In-memory TTL (tools) + Qdrant semantic (responses) |
+| Observability | Langfuse (traces, spans, LLM generations) |
+| Retry | Exponential backoff with jitter on all external calls |
+| Validation | Pydantic v2 schemas with confidence scoring |
 
 ## Project Structure
 
 ```
-├── main.py                  # FastAPI app
-├── config.py                # Env-based settings
+├── main.py                     # FastAPI entry point
+├── config.py                   # Environment-based configuration
 ├── agent/
-│   ├── schemas.py           # Pydantic models
-│   ├── tool_protocol.py     # Tool Protocol + registry
-│   ├── cache.py             # In-memory cache with TTL
-│   ├── planner.py           # LLM-driven tool selection
-│   ├── extractor.py         # LLM-driven structured extraction
-│   └── orchestrator.py      # Plan → Execute → Extract loop
-└── tools/
-    ├── github_tool.py       # GitHub REST API
-    ├── search_tool.py       # DuckDuckGo web search
-    ├── hunter_tool.py       # Hunter.io email finder
-    ├── playwright_tool.py   # Headless browser scraper
-    └── proxy.py             # Rotating proxy manager
+│   ├── orchestrator.py         # Pipeline entry point + semantic cache
+│   ├── graph.py                # LangGraph StateGraph definition
+│   ├── graph_state.py          # TypedDict state with reducers
+│   ├── planner.py              # LLM tool selection + query generation
+│   ├── extractor.py            # LLM extraction + talking points + narrative
+│   ├── schemas.py              # Pydantic models (EnrichedProfile, ToolResult, etc.)
+│   ├── tool_protocol.py        # Tool Protocol + registry
+│   ├── cache.py                # In-memory TTL cache
+│   ├── semantic_cache.py       # Qdrant vector cache
+│   ├── utils.py                # Retry decorator with exponential backoff
+│   └── observe.py              # Langfuse instrumentation (no-op when disabled)
+├── tools/
+│   ├── github_tool.py          # GitHub REST API (profile, repos, activity)
+│   ├── serper_tool.py          # Serper Google search
+│   ├── news_tool.py            # Serper Google News
+│   ├── community_tool.py       # HN Algolia + Reddit via Serper
+│   ├── playwright_tool.py      # Headless browser with DNS pre-check
+│   ├── email_pipeline.py       # 4-layer email waterfall
+│   ├── hunter_tool.py          # Hunter.io (called by email pipeline)
+│   └── proxy.py                # Proxy manager for browser
+├── evals/
+│   ├── ground_truth.json       # 10 manually verified test cases
+│   ├── evaluator.py            # Scoring functions
+│   └── run_eval.py             # CLI runner with --no-judge flag
+└── benchmarks/
+    └── benchmark.py            # Latency benchmarking with phase timing
 ```
-
-## Configuration
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API key for planner + extractor |
-| `GITHUB_TOKEN` | Yes | GitHub API — raises rate limit from 10 to 30 req/min |
-| `HUNTER_API_KEY` | No | Hunter.io API key for email finding |
-| `SCRAPERAPI_KEY` | Yes | Rotating proxy for Playwright browser scraping |
