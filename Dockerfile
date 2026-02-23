@@ -33,13 +33,16 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright Chromium as root (needs system access), then fix permissions
-RUN playwright install chromium --with-deps
+# Install Playwright Chromium to a shared path accessible by non-root user
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+RUN playwright install chromium --with-deps && chmod -R o+rx /opt/playwright
 
 COPY . .
 
 RUN chown -R app:app /app
 USER app
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 
 EXPOSE 8000
 

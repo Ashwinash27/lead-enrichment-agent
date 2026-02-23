@@ -48,7 +48,7 @@ async def _ensure_collection() -> None:
     if _collection_ready:
         return
 
-    from qdrant_client.models import Distance, VectorParams
+    from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
 
     qdrant, _ = await _clients()
     collections = await qdrant.get_collections()
@@ -59,6 +59,21 @@ async def _ensure_collection() -> None:
             vectors_config=VectorParams(size=EMBEDDING_DIM, distance=Distance.COSINE),
         )
         logger.info(f"Created Qdrant collection '{COLLECTION}'")
+
+    # Ensure payload index exists for use_case filtering
+    try:
+        collection_info = await qdrant.get_collection(COLLECTION)
+        indexed_fields = collection_info.payload_schema or {}
+        if "use_case" not in indexed_fields:
+            await qdrant.create_payload_index(
+                collection_name=COLLECTION,
+                field_name="use_case",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
+            logger.info("Created payload index on 'use_case'")
+    except Exception as e:
+        logger.warning(f"Failed to ensure use_case index: {e}")
+
     _collection_ready = True
 
 
