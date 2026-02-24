@@ -364,7 +364,7 @@ class EmailPipeline:
                     email = email_obj.get("email", "")
                     status = email_obj.get("status", "")
 
-                    if email and status == "verified":
+                    if email and status.lower() == "verified":
                         summary = (
                             f"Email: {email}\n"
                             f"Status: {status}\n"
