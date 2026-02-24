@@ -20,8 +20,9 @@ PROXY_LIST: list[str] = [
 ]
 PLAYWRIGHT_TIMEOUT: int = int(os.getenv("PLAYWRIGHT_TIMEOUT", "15000"))
 HTTP_TIMEOUT: int = int(os.getenv("HTTP_TIMEOUT", "15"))
-LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
-LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_ENABLED: bool = os.getenv("LANGFUSE_ENABLED", "false").lower() == "true"
+LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "") if LANGFUSE_ENABLED else ""
+LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "") if LANGFUSE_ENABLED else ""
 LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 ENRICHMENT_API_KEY: str = os.getenv("ENRICHMENT_API_KEY", "")
 CORS_ORIGINS: list[str] = [
