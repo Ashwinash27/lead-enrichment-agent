@@ -154,8 +154,11 @@ class GitHubTool:
 
             profile = await self._get_profile(client, login)
 
-            # Name cross-validation: profile name must match the search name
-            if expected_name and not self._name_matches(profile, expected_name):
+            name_ok = self._name_matches(profile, expected_name) if expected_name else True
+            company_ok = self._company_matches(profile, expected_company) if expected_company else True
+
+            # Name cross-validation
+            if not name_ok:
                 logger.info(
                     f"GitHub skipping name mismatch: {login} "
                     f"(profile name='{profile.get('name', '')}', "
@@ -163,14 +166,20 @@ class GitHubTool:
                 )
                 continue
 
-            # Company cross-validation: if we searched with a company, check
-            # that the profile doesn't list a DIFFERENT company
-            if expected_company and not self._company_matches(profile, expected_company):
+            # Company cross-validation
+            if not company_ok:
                 logger.info(
                     f"GitHub skipping company mismatch: {login} "
                     f"(profile company='{profile.get('company', '')}', "
                     f"expected='{expected_company}')"
                 )
+                continue
+
+            # Require at least one positive signal — empty name + empty company = no evidence
+            profile_name = (profile.get("name") or "").strip()
+            profile_company = (profile.get("company") or "").strip()
+            if not profile_name and not profile_company:
+                logger.info(f"GitHub skipping empty profile: {login} (no name or company set)")
                 continue
 
             logger.info(f"GitHub matched: {login}")
