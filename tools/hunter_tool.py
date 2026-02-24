@@ -90,6 +90,14 @@ class HunterIoTool:
                             "api_key": HUNTER_API_KEY,
                         },
                     )
+                    if resp.status_code in (401, 403):
+                        logger.warning("Hunter API key invalid or expired")
+                        return ToolResult(
+                            tool_name=self.name,
+                            success=False,
+                            error="Hunter API key invalid or expired",
+                            latency_ms=(time.time() - t0) * 1000,
+                        )
                     resp.raise_for_status()
                     data = resp.json().get("data", {})
                     email = data.get("email", "")

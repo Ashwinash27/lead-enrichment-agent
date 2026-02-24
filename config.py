@@ -9,6 +9,7 @@ EXTRACTOR_MODEL: str = os.getenv("EXTRACTOR_MODEL", "claude-haiku-4-5-20251001")
 _raw_github_token = os.getenv("GITHUB_TOKEN", "")
 GITHUB_TOKEN: str = "" if _raw_github_token.startswith("ghp_...") else _raw_github_token
 HUNTER_API_KEY: str = os.getenv("HUNTER_API_KEY", "")
+PROSPEO_API_KEY: str = os.getenv("PROSPEO_API_KEY", "")
 SERPER_API_KEY: str = os.getenv("SERPER_API_KEY", "")
 SCRAPERAPI_KEY: str = os.getenv("SCRAPERAPI_KEY", "")
 QDRANT_URL: str = os.getenv("QDRANT_URL", "")

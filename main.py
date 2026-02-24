@@ -14,6 +14,9 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 
+# Suppress httpx request logging — it leaks API keys in query params
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 app = FastAPI(title="Lead Research Agent", version="0.2.0")
 
 # CORS: explicit origins + chrome-extension:// via regex

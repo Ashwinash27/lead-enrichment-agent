@@ -9,11 +9,12 @@ import httpx
 from agent.cache import cache
 from agent.schemas import ToolResult
 from agent.utils import retry_with_backoff
-from config import HUNTER_API_KEY, HTTP_TIMEOUT
+from config import HUNTER_API_KEY, PROSPEO_API_KEY, HTTP_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
 HUNTER_API = "https://api.hunter.io/v2/email-finder"
+PROSPEO_API = "https://api.prospeo.io/enrich-person"
 
 # Patterns that look like real emails (not noreply, support, etc.)
 _JUNK_PREFIXES = {"noreply", "no-reply", "support", "info", "hello", "admin",
@@ -94,7 +95,7 @@ def _extract_domains(tool_results: list[ToolResult], company: str) -> list[str]:
 
 class EmailPipeline:
     name = "email_pipeline"
-    description = "Waterfall email finder: GitHub -> regex scan -> SMTP verify -> Hunter.io (last resort)"
+    description = "Waterfall email finder: GitHub -> regex scan -> SMTP verify -> Prospeo -> Hunter.io"
 
     async def run(self, name: str, company: str, **kwargs) -> ToolResult:
         t0 = time.time()
@@ -120,13 +121,22 @@ class EmailPipeline:
             logger.info(f"EmailPipeline: Layer 3 (SMTP) found {email}")
             return self._result(email, confidence, source, t0)
 
-        # Layer 4: Hunter.io (last resort, 25/month limit)
+        # Layer 4: Prospeo (75 free credits/month, verified emails)
+        if PROSPEO_API_KEY and domains:
+            email, confidence, source = await self._layer_prospeo(
+                first, last, name, company, domains
+            )
+            if email:
+                logger.info(f"EmailPipeline: Layer 4 (Prospeo) found {email}")
+                return self._result(email, confidence, source, t0)
+
+        # Layer 5: Hunter.io (fallback, 25/month limit)
         if HUNTER_API_KEY and domains:
             email, confidence, source = await self._layer_hunter(
                 first, last, name, company, domains
             )
             if email:
-                logger.info(f"EmailPipeline: Layer 4 (Hunter) found {email}")
+                logger.info(f"EmailPipeline: Layer 5 (Hunter) found {email}")
                 return self._result(email, confidence, source, t0)
 
         return ToolResult(
@@ -267,7 +277,69 @@ class EmailPipeline:
         except Exception:
             return False
 
-    # -- Layer 4: Hunter.io --
+    # -- Layer 4: Prospeo --
+    @retry_with_backoff()
+    async def _fetch_prospeo(
+        self, client: httpx.AsyncClient, first: str, last: str, domain: str,
+    ) -> dict:
+        """Single Prospeo API call — retried on transient errors."""
+        resp = await client.post(
+            PROSPEO_API,
+            headers={"X-KEY": PROSPEO_API_KEY, "Content-Type": "application/json"},
+            json={
+                "only_verified_email": True,
+                "data": {
+                    "first_name": first,
+                    "last_name": last,
+                    "company_website": domain,
+                },
+            },
+        )
+        if resp.status_code in (401, 403):
+            logger.warning("Prospeo API key invalid or quota exhausted — skipping")
+            return {}
+        resp.raise_for_status()
+        return resp.json()
+
+    async def _layer_prospeo(
+        self, first: str, last: str, full_name: str, company: str,
+        domains: list[str],
+    ) -> tuple[str, float, str]:
+        cache_key = f"prospeo:{full_name}:{company}"
+        cached = await cache.get(cache_key)
+        if cached is not None:
+            for line in cached.split("\n"):
+                if line.startswith("Email: "):
+                    return line[7:], 0.9, "prospeo_cached"
+            return "", 0.0, ""
+
+        try:
+            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+                for domain in domains[:2]:  # Conserve credits
+                    try:
+                        data = await self._fetch_prospeo(client, first, last, domain)
+                    except Exception:
+                        continue
+
+                    person = data.get("person") or {}
+                    email_obj = person.get("email") or {}
+                    email = email_obj.get("email", "")
+                    status = email_obj.get("status", "")
+
+                    if email and status == "verified":
+                        summary = (
+                            f"Email: {email}\n"
+                            f"Status: {status}\n"
+                            f"Domain: {domain}"
+                        )
+                        await cache.set(cache_key, summary, ttl=300)
+                        return email, 0.9, f"prospeo:{domain}"
+        except Exception as e:
+            logger.error(f"EmailPipeline Prospeo error: {e}")
+
+        return "", 0.0, ""
+
+    # -- Layer 5: Hunter.io --
     @retry_with_backoff()
     async def _fetch_hunter_domain(
         self, client: httpx.AsyncClient, domain: str, first: str, last: str,
@@ -282,6 +354,9 @@ class EmailPipeline:
                 "api_key": HUNTER_API_KEY,
             },
         )
+        if resp.status_code in (401, 403):
+            logger.warning("Hunter API key invalid or expired — skipping")
+            return {"data": {}}
         resp.raise_for_status()
         return resp.json()
 
