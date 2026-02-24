@@ -4,11 +4,10 @@ import asyncio
 import logging
 import socket
 import time
+import traceback
 from urllib.parse import urlparse
 
-from playwright.async_api import async_playwright
-
-import traceback
+from playwright.async_api import async_playwright, Playwright, Browser
 
 from agent.cache import cache
 from agent.schemas import ToolResult
@@ -24,6 +23,29 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/120.0.0.0 Safari/537.36"
 )
+
+# ── Browser singleton ────────────────────────────────────────────────────
+_pw: Playwright | None = None
+_browser: Browser | None = None
+_browser_lock = asyncio.Lock()
+
+
+async def _get_browser(proxy_cfg: dict | None = None) -> Browser:
+    """Return shared browser instance, launching if needed."""
+    global _pw, _browser
+    async with _browser_lock:
+        if _browser is not None and _browser.is_connected():
+            return _browser
+        # Previous browser died or first call — (re)launch
+        if _pw is None:
+            _pw = await async_playwright().start()
+        launch_args: dict = {"headless": True}
+        if proxy_cfg:
+            launch_args["proxy"] = proxy_cfg
+            launch_args["args"] = ["--ignore-certificate-errors"]
+        _browser = await _pw.chromium.launch(**launch_args)
+        logger.info("[browser] Launched shared Chromium instance")
+        return _browser
 
 
 class PlaywrightTool:
@@ -55,14 +77,6 @@ class PlaywrightTool:
                 success=True,
                 latency_ms=(time.time() - t0) * 1000,
             )
-
-        # Debug: log proxy configuration
-        from config import PROXY_LIST, SCRAPERAPI_KEY
-        logger.info(
-            f"[browser-debug] PROXY_LIST loaded: {len(PROXY_LIST)} entries, "
-            f"SCRAPERAPI_KEY set: {bool(SCRAPERAPI_KEY)}, "
-            f"proxy_manager.has_proxies: {proxy_manager.has_proxies}"
-        )
 
         if not await self._domain_exists(url):
             logger.info(f"Skipping {url} — domain does not resolve")
@@ -107,25 +121,10 @@ class PlaywrightTool:
             return False
 
     async def _scrape_url(self, url: str, use_proxy: bool = True) -> str | None:
-        browser = None
+        context = None
         try:
-            pw = await async_playwright().start()
-            launch_args: dict = {"headless": True}
             proxy_cfg = proxy_manager.get_playwright_proxy() if use_proxy else None
-            if proxy_cfg:
-                launch_args["proxy"] = proxy_cfg
-                launch_args["args"] = ["--ignore-certificate-errors"]
-                masked_server = proxy_cfg["server"]
-                masked_user = proxy_cfg.get("username", "none")
-                has_pass = bool(proxy_cfg.get("password"))
-                logger.info(
-                    f"[browser-debug] Proxy config: server={masked_server}, "
-                    f"username={masked_user}, password_set={has_pass}"
-                )
-            else:
-                logger.info(f"[browser-debug] Connecting directly (no proxy, use_proxy={use_proxy})")
-
-            browser = await pw.chromium.launch(**launch_args)
+            browser = await _get_browser(proxy_cfg)
             context = await browser.new_context(
                 user_agent=USER_AGENT,
                 ignore_https_errors=True,
@@ -151,14 +150,10 @@ class PlaywrightTool:
 
         except Exception as e:
             logger.error(
-                f"[browser-debug] FAILED {url} (proxy={use_proxy}): "
+                f"[browser] FAILED {url} (proxy={use_proxy}): "
                 f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
             )
             return None
         finally:
-            if browser:
-                await browser.close()
-            try:
-                await pw.stop()
-            except Exception:
-                pass
+            if context:
+                await context.close()
