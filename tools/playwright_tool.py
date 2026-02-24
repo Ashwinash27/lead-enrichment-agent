@@ -48,6 +48,18 @@ async def _get_browser(proxy_cfg: dict | None = None) -> Browser:
         return _browser
 
 
+async def shutdown_browser() -> None:
+    """Close the shared browser and Playwright. Call before event loop closes."""
+    global _pw, _browser
+    async with _browser_lock:
+        if _browser is not None:
+            await _browser.close()
+            _browser = None
+        if _pw is not None:
+            await _pw.stop()
+            _pw = None
+
+
 class PlaywrightTool:
     name = "browser"
     description = (

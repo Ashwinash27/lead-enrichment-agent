@@ -19,6 +19,12 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 app = FastAPI(title="Lead Research Agent", version="0.2.0")
 
+
+@app.on_event("shutdown")
+async def _shutdown():
+    from tools.playwright_tool import shutdown_browser
+    await shutdown_browser()
+
 # CORS: explicit origins + chrome-extension:// via regex
 _allowed_origins = [
     "http://localhost:3000",

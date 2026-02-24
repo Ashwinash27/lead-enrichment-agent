@@ -25,9 +25,12 @@ async def main():
     print(f"{'=' * 60}\n")
 
     request = EnrichRequest(name=name, company=company, location=location, use_case=use_case)
-    response = await enrich_lead(request)
-
-    print(json.dumps(response.model_dump(), indent=2, default=str))
+    try:
+        response = await enrich_lead(request)
+        print(json.dumps(response.model_dump(), indent=2, default=str))
+    finally:
+        from tools.playwright_tool import shutdown_browser
+        await shutdown_browser()
 
 
 if __name__ == "__main__":
