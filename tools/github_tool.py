@@ -105,10 +105,6 @@ class GitHubTool:
             resp = await client.get(url, headers=self._headers(), **kwargs)
         return resp
 
-    # Minimum followers to consider a GitHub account credible.
-    # Repos alone are too easy to game (empty repos, forks, etc).
-    _MIN_FOLLOWERS = 50
-
     async def _search_user(
         self, client: httpx.AsyncClient, name: str, company: str
     ) -> str | None:
@@ -156,17 +152,7 @@ class GitHubTool:
                 continue
             seen.add(login)
 
-            # Check credibility from profile data
             profile = await self._get_profile(client, login)
-            followers = profile.get("followers", 0)
-            public_repos = profile.get("public_repos", 0)
-
-            if followers < self._MIN_FOLLOWERS:
-                logger.info(
-                    f"GitHub skipping low-credibility account: {login} "
-                    f"({followers} followers, {public_repos} repos)"
-                )
-                continue
 
             # Name cross-validation: profile name must match the search name
             if expected_name and not self._name_matches(profile, expected_name):
@@ -187,10 +173,7 @@ class GitHubTool:
                 )
                 continue
 
-            logger.info(
-                f"GitHub credible match: {login} "
-                f"({followers} followers, {public_repos} repos)"
-            )
+            logger.info(f"GitHub matched: {login}")
             self._prefetched_profile = profile
             return login
 
