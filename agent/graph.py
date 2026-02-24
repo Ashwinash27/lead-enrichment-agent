@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
+from urllib.parse import urlparse
 
 import tools  # noqa: F401 — triggers tool registration
 
@@ -19,6 +21,28 @@ from tools.email_pipeline import EmailPipeline
 logger = logging.getLogger(__name__)
 
 MAX_BROWSER_URLS = 3
+
+_ALLOWED_SCHEMES = {"http", "https"}
+_HOST_RE = re.compile(r"^[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}$")
+
+
+def _sanitize_url(url: str) -> str | None:
+    """Validate and normalize a URL from the planner. Returns None if unsafe."""
+    url = url.strip()
+    if not url:
+        return None
+    parsed = urlparse(url)
+    # Add https:// if scheme is missing
+    if not parsed.scheme:
+        url = f"https://{url}"
+        parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_SCHEMES:
+        logger.warning(f"Rejected URL with scheme {parsed.scheme!r}: {url}")
+        return None
+    if not parsed.hostname or not _HOST_RE.match(parsed.hostname):
+        logger.warning(f"Rejected URL with invalid hostname: {url}")
+        return None
+    return url
 
 email_pipeline = EmailPipeline()
 
@@ -193,7 +217,10 @@ async def planner_dependent_node(state: AgentState) -> dict:
     if "browser" in decision.tools_to_run:
         tool = registry.get("browser")
         if tool:
-            for url in decision.urls_to_scrape[:MAX_BROWSER_URLS]:
+            for raw_url in decision.urls_to_scrape[:MAX_BROWSER_URLS]:
+                url = _sanitize_url(raw_url)
+                if url is None:
+                    continue
                 label = f"browser:{url}"
                 kwargs = {
                     "name": state["name"],

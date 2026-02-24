@@ -67,6 +67,16 @@ class PlaywrightTool:
                 latency_ms=(time.time() - t0) * 1000,
             )
 
+        # Safety net: reject non-http(s) schemes
+        parsed = urlparse(url)
+        if parsed.scheme and parsed.scheme not in ("http", "https"):
+            return ToolResult(
+                tool_name=self.name,
+                success=False,
+                error=f"Rejected URL with scheme {parsed.scheme!r}",
+                latency_ms=(time.time() - t0) * 1000,
+            )
+
         cache_key = f"browser:{url}"
         cached = await cache.get(cache_key)
         if cached is not None:
