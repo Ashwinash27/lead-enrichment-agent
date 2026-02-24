@@ -9,7 +9,7 @@ import httpx
 from agent.cache import cache
 from agent.schemas import ToolResult
 from agent.utils import retry_with_backoff
-from config import HUNTER_API_KEY, PROSPEO_API_KEY, HTTP_TIMEOUT
+from config import HUNTER_API_KEY, PROSPEO_API_KEY, SMTP_ENABLED, HTTP_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,11 @@ class EmailPipeline:
 
         # Layer 3: SMTP pattern verification
         domains = _extract_domains(tool_results, company)
-        email, confidence, source = await self._layer_smtp(first, last, domains)
+        if not SMTP_ENABLED:
+            logger.info("EmailPipeline: Layer 3 (SMTP) skipped — SMTP_ENABLED=false")
+            email, confidence, source = "", 0.0, ""
+        else:
+            email, confidence, source = await self._layer_smtp(first, last, domains)
         if email:
             logger.info(f"EmailPipeline: Layer 3 (SMTP) found {email}")
             return self._result(email, confidence, source, t0)
