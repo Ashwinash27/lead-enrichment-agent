@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -24,6 +25,15 @@ TTL_SECONDS = 30 * 86400  # 30 days
 _qdrant = None
 _openai = None
 _collection_ready = False
+_init_lock: asyncio.Lock | None = None
+
+
+def _get_lock() -> asyncio.Lock:
+    """Lazy-create the lock (must be called inside a running event loop)."""
+    global _init_lock
+    if _init_lock is None:
+        _init_lock = asyncio.Lock()
+    return _init_lock
 
 
 def _enabled() -> bool:
@@ -35,12 +45,17 @@ async def _clients():
     if _qdrant is not None:
         return _qdrant, _openai
 
-    from qdrant_client import AsyncQdrantClient
-    from openai import AsyncOpenAI
+    async with _get_lock():
+        # Double-check after acquiring lock
+        if _qdrant is not None:
+            return _qdrant, _openai
 
-    _qdrant = AsyncQdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
-    _openai = AsyncOpenAI(api_key=OPENAI_API_KEY)
-    return _qdrant, _openai
+        from qdrant_client import AsyncQdrantClient
+        from openai import AsyncOpenAI
+
+        _qdrant = AsyncQdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        _openai = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        return _qdrant, _openai
 
 
 async def _ensure_collection() -> None:
