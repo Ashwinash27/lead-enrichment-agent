@@ -147,8 +147,9 @@ class EmailPipeline:
             return self._result(email, confidence, source, t0)
 
         # Layer 4: Prospeo (75 free credits/month, verified emails)
+        prospeo_tried: list[str] = []
         if PROSPEO_API_KEY and domains:
-            email, confidence, source = await self._layer_prospeo(
+            email, confidence, source, prospeo_tried = await self._layer_prospeo(
                 first, last, name, company, domains
             )
             if email:
@@ -156,9 +157,12 @@ class EmailPipeline:
                 return self._result(email, confidence, source, t0)
 
         # Layer 5: Hunter.io (fallback, 25/month limit)
+        # Prioritize domains Prospeo hasn't tried yet
         if HUNTER_API_KEY and domains:
+            tried_set = set(prospeo_tried)
+            hunter_domains = [d for d in domains if d not in tried_set] + list(prospeo_tried)
             email, confidence, source = await self._layer_hunter(
-                first, last, name, company, domains
+                first, last, name, company, hunter_domains
             )
             if email:
                 logger.info(f"EmailPipeline: Layer 5 (Hunter) found {email}")
@@ -335,18 +339,21 @@ class EmailPipeline:
     async def _layer_prospeo(
         self, first: str, last: str, full_name: str, company: str,
         domains: list[str],
-    ) -> tuple[str, float, str]:
+    ) -> tuple[str, float, str, list[str]]:
+        """Returns (email, confidence, source, tried_domains)."""
         cache_key = f"prospeo:{full_name}:{company}"
         cached = await cache.get(cache_key)
         if cached is not None:
             for line in cached.split("\n"):
                 if line.startswith("Email: "):
-                    return line[7:], 0.9, "prospeo_cached"
-            return "", 0.0, ""
+                    return line[7:], 0.9, "prospeo_cached", []
+            return "", 0.0, "", []
 
+        tried: list[str] = []
         try:
             async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
                 for domain in domains[:2]:  # Conserve credits
+                    tried.append(domain)
                     try:
                         data = await self._fetch_prospeo(client, first, last, domain)
                     except Exception:
@@ -364,11 +371,16 @@ class EmailPipeline:
                             f"Domain: {domain}"
                         )
                         await cache.set(cache_key, summary, ttl=300)
-                        return email, 0.9, f"prospeo:{domain}"
+                        return email, 0.9, f"prospeo:{domain}", tried
+                    else:
+                        logger.info(
+                            f"Prospeo {domain} returned email={email!r} "
+                            f"status={status!r} — skipping"
+                        )
         except Exception as e:
             logger.error(f"EmailPipeline Prospeo error: {e}")
 
-        return "", 0.0, ""
+        return "", 0.0, "", tried
 
     # -- Layer 5: Hunter.io --
     @retry_with_backoff()
