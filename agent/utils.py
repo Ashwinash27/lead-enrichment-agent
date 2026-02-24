@@ -10,12 +10,25 @@ import random
 logger = logging.getLogger(__name__)
 
 
+_QUOTA_DOMAINS = {"api.hunter.io", "api.prospeo.io"}
+
+
 def _is_retryable(exc: Exception) -> bool:
-    """Return True for 5xx, 429, timeout, and connection errors only."""
+    """Return True for 5xx, 429, timeout, and connection errors only.
+
+    Skips retry on 429 from quota-based APIs (Hunter, Prospeo) where
+    retrying a monthly-limit 429 just wastes credits.
+    """
     import httpx
 
     if isinstance(exc, httpx.HTTPStatusError):
-        return exc.response.status_code >= 500 or exc.response.status_code == 429
+        code = exc.response.status_code
+        if code == 429:
+            host = exc.request.url.host
+            if host in _QUOTA_DOMAINS:
+                return False
+            return True
+        return code >= 500
     if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
                         httpx.WriteTimeout, httpx.PoolTimeout)):
         return True
