@@ -89,11 +89,20 @@ class SerperNewsTool:
             resp.raise_for_status()
             return resp.json()
 
+    @staticmethod
+    def _extract_urls(text: str) -> list[str]:
+        """Extract URLs from formatted news text (same pattern as serper_tool)."""
+        return [
+            line.strip().removeprefix("URL: ")
+            for line in text.split("\n")
+            if line.strip().startswith("URL: ")
+        ]
+
     async def _search_news(self, query: str) -> tuple[str, list[str]]:
         cache_key = f"news:{query}"
         cached = await cache.get(cache_key)
         if cached is not None:
-            return cached, []
+            return cached, self._extract_urls(cached)
 
         try:
             data = await self._fetch_news(query)
