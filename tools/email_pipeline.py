@@ -49,25 +49,30 @@ def _is_person_email(email: str, first: str, last: str) -> bool:
 def _extract_domains(tool_results: list[ToolResult], company: str) -> list[str]:
     """Extract likely company domains from browser tool results and company slug.
 
-    ONLY uses browser results (planner-selected company sites) + company slug
-    variants. Never pulls domains from search/news URLs (those are news sites,
-    blogs, etc. — not the person's company).
+    Priority order:
+    1. Browser-scraped domains whose content mentions the company name (confirmed)
+    2. Browser-scraped domains with substantial content (>200 chars, likely real site)
+    3. Company slug variants with DNS validation
+    Never pulls domains from search/news URLs (those are news sites, not the company).
     """
+    import socket
     from urllib.parse import urlparse
 
+    company_lower = company.lower() if company else ""
+    _SKIP_DOMAINS = {
+        "github.com", "google.com", "linkedin.com", "twitter.com",
+        "x.com", "reddit.com", "youtube.com", "facebook.com",
+        "medium.com", "wikipedia.org", "ycombinator.com",
+        "bloomberg.com", "forbes.com", "techcrunch.com",
+        "businessinsider.com", "cnbc.com", "bbc.com",
+    }
+
     seen: set[str] = set()
-    domains: list[str] = []
+    confirmed: list[str] = []   # browser content mentions company
+    likely: list[str] = []      # browser content >200 chars
+    fallback: list[str] = []    # slug guesses with DNS
 
-    # Company slug variants go FIRST (highest confidence)
-    if company:
-        slug = company.lower().replace(" ", "").replace("-", "")
-        for tld in (".com", ".io", ".ai", ".co"):
-            candidate = slug + tld
-            if candidate not in seen:
-                seen.add(candidate)
-                domains.append(candidate)
-
-    # Only pull domains from browser tool results (planner-selected URLs)
+    # 1. Browser-derived domains — already fetched, check content
     for tr in tool_results:
         if not tr.tool_name.startswith("browser") or not tr.success:
             continue
@@ -76,21 +81,37 @@ def _extract_domains(tool_results: list[ToolResult], company: str) -> list[str]:
                 host = urlparse(url).hostname or ""
                 if host.startswith("www."):
                     host = host[4:]
-                # Skip common non-company domains
-                if host and not any(host.endswith(s) for s in (
-                    "github.com", "google.com", "linkedin.com", "twitter.com",
-                    "x.com", "reddit.com", "youtube.com", "facebook.com",
-                    "medium.com", "wikipedia.org", "ycombinator.com",
-                    "bloomberg.com", "forbes.com", "techcrunch.com",
-                    "businessinsider.com", "cnbc.com", "bbc.com",
-                )):
-                    if host not in seen:
-                        seen.add(host)
-                        domains.append(host)
+                if not host or any(host.endswith(s) for s in _SKIP_DOMAINS):
+                    continue
+                if host in seen:
+                    continue
+                seen.add(host)
+                # Strip "Content from: <url>" header to avoid false positive
+                # matching company name against the URL itself
+                raw = tr.raw_data or ""
+                content = raw.split("\n", 1)[-1].lower() if raw.startswith("Content from:") else raw.lower()
+                if company_lower and company_lower in content:
+                    confirmed.append(host)
+                elif len(tr.raw_data or "") > 200:
+                    likely.append(host)
             except Exception:
                 pass
 
-    return domains
+    # 2. Slug variants as fallback — skip already-seen, DNS-validate
+    if company:
+        slug = company.lower().replace(" ", "").replace("-", "")
+        for tld in (".com", ".ai", ".io", ".co"):
+            candidate = slug + tld
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            try:
+                socket.gethostbyname(candidate)
+                fallback.append(candidate)
+            except socket.gaierror:
+                pass
+
+    return confirmed + likely + fallback
 
 
 class EmailPipeline:
@@ -298,6 +319,12 @@ class EmailPipeline:
         if resp.status_code in (401, 403):
             logger.warning("Prospeo API key invalid or quota exhausted — skipping")
             return {}
+        # Prospeo returns 400 for business-logic failures (NO_MATCH, INVALID_DATAPOINTS)
+        # Parse the body instead of raising — the error details are in the JSON
+        if resp.status_code == 400:
+            body = resp.json()
+            logger.info(f"Prospeo 400 for {domain}: {body.get('message', body.get('error', 'unknown'))}")
+            return body
         resp.raise_for_status()
         return resp.json()
 
@@ -351,8 +378,8 @@ class EmailPipeline:
                 "domain": domain,
                 "first_name": first,
                 "last_name": last,
-                "api_key": HUNTER_API_KEY,
             },
+            headers={"Authorization": f"Bearer {HUNTER_API_KEY}"},
         )
         if resp.status_code in (401, 403):
             logger.warning("Hunter API key invalid or expired — skipping")

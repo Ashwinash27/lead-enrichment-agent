@@ -11,4 +11,3 @@ registry.register(PlaywrightTool())
 registry.register(SerperNewsTool())
 registry.register(CommunityActivityTool())
 # EmailPipeline NOT registered — orchestrator calls it directly
-# HunterIoTool NOT registered — called internally by EmailPipeline
