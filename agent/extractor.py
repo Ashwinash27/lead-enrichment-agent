@@ -172,17 +172,28 @@ def _repair_truncated_json_object(raw: str) -> dict | None:
     return None
 
 
-def _build_combined(tool_results: list[ToolResult]) -> str:
-    """Build truncated combined text from tool results (Approach 1)."""
+RETRY_PER_TOOL_MAX = 4500
+RETRY_MAX_CONTEXT = 30000
+
+
+def _build_combined(
+    tool_results: list[ToolResult],
+    per_tool_max: int = PER_TOOL_MAX,
+    max_context: int = MAX_CONTEXT,
+) -> str:
+    """Build truncated combined text from tool results."""
     sections: list[str] = []
     for tr in tool_results:
         if tr.success and tr.raw_data:
-            data = tr.raw_data[:PER_TOOL_MAX] if len(tr.raw_data) > PER_TOOL_MAX else tr.raw_data
+            data = tr.raw_data[:per_tool_max] if len(tr.raw_data) > per_tool_max else tr.raw_data
             sections.append(f"=== {tr.tool_name} ===\n{data}")
 
     combined = "\n\n".join(sections)
-    if len(combined) > MAX_CONTEXT:
-        combined = combined[:MAX_CONTEXT]
+    if len(combined) > max_context:
+        logger.warning(
+            f"Extractor context truncated: {len(combined)} -> {max_context} chars"
+        )
+        combined = combined[:max_context]
     return combined
 
 
@@ -288,13 +299,19 @@ async def extract(
         )
         logger.info(f"[{trace_id}] Extraction complete")
 
-        # Approach 2: Retry with higher max_tokens if critical fields are empty
+        # Approach 2: Retry with higher max_tokens and relaxed context if critical fields empty
         if _needs_retry(profile, tool_results):
+            combined = _build_combined(
+                tool_results,
+                per_tool_max=RETRY_PER_TOOL_MAX,
+                max_context=RETRY_MAX_CONTEXT,
+            )
             logger.warning(
                 f"[{trace_id}] Extraction retry — critical fields empty "
                 f"(role={bool(profile.role)}, bio={bool(profile.bio)}, "
                 f"skills={len(profile.skills)}, github={profile.github is not None and bool(profile.github.username)}, "
-                f"sources={len(profile.sources)}). Retrying with max_tokens={RETRY_MAX_TOKENS}"
+                f"sources={len(profile.sources)}). Retrying with max_tokens={RETRY_MAX_TOKENS}, "
+                f"context={len(combined)} chars"
             )
             profile = await _extract_once(
                 name, company, combined, trace_id, location, RETRY_MAX_TOKENS,
