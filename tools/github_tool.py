@@ -123,21 +123,41 @@ class GitHubTool:
                 f"{first[0]}{last}",
             ])
 
+        # Collect all candidates across queries, then pick the best one
         seen: set[str] = set()
+        candidates: list[tuple[float, str, dict]] = []  # (score, login, profile)
         for query in queries:
-            login = await self._try_search_credible(
+            new_candidates = await self._collect_candidates(
                 client, query, seen,
                 expected_name=name, expected_company=company,
             )
-            if login:
-                return login
-        return None
+            candidates.extend(new_candidates)
+
+        if not candidates:
+            return None
+
+        # Pick highest-scoring candidate
+        candidates.sort(key=lambda c: c[0], reverse=True)
+        best_score, best_login, best_profile = candidates[0]
+
+        # Require a minimum score to avoid pure garbage matches
+        if best_score < 1.0:
+            logger.info(
+                f"GitHub no confident match — best was {best_login} "
+                f"(score={best_score:.1f})"
+            )
+            return None
+
+        logger.info(f"GitHub matched: {best_login} (score={best_score:.1f})")
+        self._prefetched_profile = best_profile
+        return best_login
 
     @retry_with_backoff()
-    async def _try_search_credible(
+    async def _collect_candidates(
         self, client: httpx.AsyncClient, query: str, seen: set[str],
         expected_name: str = "", expected_company: str = "",
-    ) -> str | None:
+    ) -> list[tuple[float, str, dict]]:
+        """Search GitHub and return scored candidates instead of first-match."""
         resp = await self._request(
             client,
             f"{GITHUB_API}/search/users",
@@ -146,6 +166,7 @@ class GitHubTool:
         resp.raise_for_status()
         items = resp.json().get("items", [])
 
+        candidates: list[tuple[float, str, dict]] = []
         for item in items:
             login = item["login"]
             if login in seen:
@@ -153,40 +174,92 @@ class GitHubTool:
             seen.add(login)
 
             profile = await self._get_profile(client, login)
+            score = self._score_candidate(profile, login, expected_name, expected_company)
 
-            name_ok = self._name_matches(profile, expected_name) if expected_name else True
-            company_ok = self._company_matches(profile, expected_company) if expected_company else True
-
-            # Name cross-validation
-            if not name_ok:
+            if score <= 0:
                 logger.info(
-                    f"GitHub skipping name mismatch: {login} "
-                    f"(profile name='{profile.get('name', '')}', "
-                    f"expected='{expected_name}')"
+                    f"GitHub skipping {login} (score={score:.1f}, "
+                    f"name='{profile.get('name', '')}', "
+                    f"company='{profile.get('company', '')}')"
                 )
                 continue
 
-            # Company cross-validation
-            if not company_ok:
-                logger.info(
-                    f"GitHub skipping company mismatch: {login} "
-                    f"(profile company='{profile.get('company', '')}', "
-                    f"expected='{expected_company}')"
-                )
-                continue
+            logger.info(
+                f"GitHub candidate: {login} (score={score:.1f}, "
+                f"name='{profile.get('name', '')}', "
+                f"company='{profile.get('company', '')}')"
+            )
+            candidates.append((score, login, profile))
 
-            # Require at least one positive signal — empty name + empty company = no evidence
-            profile_name = (profile.get("name") or "").strip()
-            profile_company = (profile.get("company") or "").strip()
-            if not profile_name and not profile_company:
-                logger.info(f"GitHub skipping empty profile: {login} (no name or company set)")
-                continue
+        return candidates
 
-            logger.info(f"GitHub matched: {login}")
-            self._prefetched_profile = profile
-            return login
+    @staticmethod
+    def _username_matches_name(login: str, expected_name: str) -> bool:
+        """Check if a GitHub username is a plausible derivation of the person's name."""
+        login_lower = login.lower().replace("-", "").replace("_", "")
+        parts = expected_name.strip().lower().split()
+        if len(parts) < 2:
+            return False
+        first, last = parts[0], parts[-1]
+        # Match patterns: firstlast, lastfirst, first-last, flast
+        return (
+            f"{first}{last}" in login_lower
+            or f"{last}{first}" in login_lower
+            or f"{first[0]}{last}" == login_lower
+            or login_lower == first
+            or login_lower == last
+        )
 
-        return None
+    @classmethod
+    def _score_candidate(
+        cls, profile: dict, login: str,
+        expected_name: str, expected_company: str,
+    ) -> float:
+        """Score a GitHub profile candidate. Higher = better match.
+
+        Scoring:
+          +3  name field matches expected name
+          +2  company field matches expected company
+          +1  username looks like a derivation of the name
+          +0.5 profile has a bio set
+          -1  company field is set but doesn't match (different person risk)
+          -5  name field is set but doesn't match (hard reject)
+        """
+        score = 0.0
+
+        profile_name = (profile.get("name") or "").strip()
+        profile_company = (profile.get("company") or "").strip()
+        bio = (profile.get("bio") or "").strip()
+
+        # Name matching
+        if expected_name:
+            if profile_name:
+                if cls._name_matches(profile, expected_name):
+                    score += 3.0
+                else:
+                    # Name is set but doesn't match — almost certainly wrong person
+                    return -5.0
+            # Empty name: no evidence either way, rely on other signals
+
+        # Company matching
+        if expected_company:
+            if profile_company:
+                if cls._company_matches(profile, expected_company):
+                    score += 2.0
+                else:
+                    # Company mismatch: penalty but not a hard reject
+                    # (people change jobs)
+                    score -= 1.0
+
+        # Username resembles the expected name
+        if expected_name and cls._username_matches_name(login, expected_name):
+            score += 1.0
+
+        # Bio exists — mild positive signal
+        if bio:
+            score += 0.5
+
+        return score
 
     @staticmethod
     def _name_matches(profile: dict, expected: str) -> bool:
@@ -195,10 +268,14 @@ class GitHubTool:
         if not profile_name:
             return True  # Empty name is neutral, not a mismatch
         expected_lower = expected.strip().lower()
-        expected_parts = set(expected_lower.split())
-        profile_parts = set(profile_name.split())
-        # At least one name part must overlap (first or last name)
-        return bool(expected_parts & profile_parts)
+        expected_parts = expected_lower.split()
+        profile_parts = profile_name.split()
+        if len(expected_parts) >= 2 and len(profile_parts) >= 2:
+            # Both have first+last: require first name match (last names like
+            # "Shah", "Smith", "Lee" are too common to match alone)
+            return expected_parts[0] == profile_parts[0] or expected_parts[0] in profile_parts
+        # Single-word name or single-word profile: any overlap is fine
+        return bool(set(expected_parts) & set(profile_parts))
 
     @staticmethod
     def _company_matches(profile: dict, expected: str) -> bool:
