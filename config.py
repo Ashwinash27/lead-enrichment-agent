@@ -27,6 +27,8 @@ LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "") if LANGFUSE_ENAB
 LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "") if LANGFUSE_ENABLED else ""
 LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 ENRICHMENT_API_KEY: str = os.getenv("ENRICHMENT_API_KEY", "")
+RATE_LIMIT_PER_HOUR: int = int(os.getenv("RATE_LIMIT_PER_HOUR", "50"))
+MAX_CONCURRENT_ENRICHMENTS: int = int(os.getenv("MAX_CONCURRENT_ENRICHMENTS", "5"))
 CORS_ORIGINS: list[str] = [
     o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()
 ]

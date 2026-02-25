@@ -10,8 +10,11 @@ from typing import AsyncGenerator
 from agent import observe, semantic_cache
 from agent.graph import graph
 from agent.schemas import EnrichRequest, EnrichResponse
+from config import MAX_CONCURRENT_ENRICHMENTS
 
 logger = logging.getLogger(__name__)
+
+_enrichment_semaphore = asyncio.Semaphore(MAX_CONCURRENT_ENRICHMENTS)
 
 
 async def enrich_lead(request: EnrichRequest) -> EnrichResponse:
@@ -50,31 +53,32 @@ async def enrich_lead(request: EnrichRequest) -> EnrichResponse:
         "errors": [],
     }
 
-    final = await graph.ainvoke(initial_state)
+    async with _enrichment_semaphore:
+        final = await graph.ainvoke(initial_state)
 
-    tool_results = final.get("tool_results", [])
-    sources_searched = [tr.tool_name for tr in tool_results]
-    successful = [tr for tr in tool_results if tr.success]
+        tool_results = final.get("tool_results", [])
+        sources_searched = [tr.tool_name for tr in tool_results]
+        successful = [tr for tr in tool_results if tr.success]
 
-    response = EnrichResponse(
-        success=len(successful) > 0,
-        trace_id=trace_id,
-        profile=final.get("profile"),
-        sources_searched=sources_searched,
-        errors=final.get("errors", []),
-        latency_ms=final.get("latency_ms", 0.0),
-        narrative=final.get("narrative", ""),
-        talking_points=final.get("talking_points", []),
-    )
+        response = EnrichResponse(
+            success=len(successful) > 0,
+            trace_id=trace_id,
+            profile=final.get("profile"),
+            sources_searched=sources_searched,
+            errors=final.get("errors", []),
+            latency_ms=final.get("latency_ms", 0.0),
+            narrative=final.get("narrative", ""),
+            talking_points=final.get("talking_points", []),
+        )
 
-    # ── Cache successful responses ───────────────────────────────────
-    if response.success:
-        await semantic_cache.store(request, response, trace_id)
+        # ── Cache successful responses ───────────────────────────────
+        if response.success:
+            await semantic_cache.store(request, response, trace_id)
 
-    observe.cleanup_trace(trace_id)
-    observe.flush()
+        observe.cleanup_trace(trace_id)
+        observe.flush()
 
-    return response
+        return response
 
 
 # ── SSE Streaming ────────────────────────────────────────────────────────
@@ -132,29 +136,30 @@ async def enrich_lead_streaming(
     # ── Background pipeline task ─────────────────────────────────────
     async def run_pipeline() -> None:
         try:
-            final = await graph.ainvoke(initial_state)
+            async with _enrichment_semaphore:
+                final = await graph.ainvoke(initial_state)
 
-            tool_results = final.get("tool_results", [])
-            sources_searched = [tr.tool_name for tr in tool_results]
-            successful = [tr for tr in tool_results if tr.success]
+                tool_results = final.get("tool_results", [])
+                sources_searched = [tr.tool_name for tr in tool_results]
+                successful = [tr for tr in tool_results if tr.success]
 
-            response = EnrichResponse(
-                success=len(successful) > 0,
-                trace_id=trace_id,
-                profile=final.get("profile"),
-                sources_searched=sources_searched,
-                errors=final.get("errors", []),
-                latency_ms=final.get("latency_ms", 0.0),
-                narrative=final.get("narrative", ""),
-                talking_points=final.get("talking_points", []),
-            )
-
-            if response.success:
-                request = EnrichRequest(
-                    name=name, company=company,
-                    location=location, use_case=use_case,
+                response = EnrichResponse(
+                    success=len(successful) > 0,
+                    trace_id=trace_id,
+                    profile=final.get("profile"),
+                    sources_searched=sources_searched,
+                    errors=final.get("errors", []),
+                    latency_ms=final.get("latency_ms", 0.0),
+                    narrative=final.get("narrative", ""),
+                    talking_points=final.get("talking_points", []),
                 )
-                await semantic_cache.store(request, response, trace_id)
+
+                if response.success:
+                    request = EnrichRequest(
+                        name=name, company=company,
+                        location=location, use_case=use_case,
+                    )
+                    await semantic_cache.store(request, response, trace_id)
 
             await queue.put({"type": "complete", "data": response.model_dump()})
         except Exception as e:

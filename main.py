@@ -8,6 +8,7 @@ from agent.orchestrator import enrich_lead, enrich_lead_streaming
 from agent.schemas import EnrichRequest, EnrichResponse
 from agent import semantic_cache
 from config import CORS_ORIGINS, ENRICHMENT_API_KEY
+from middleware import RateLimitMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,6 +32,7 @@ _allowed_origins = [
     "http://localhost:8000",
 ] + CORS_ORIGINS
 
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
