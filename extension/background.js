@@ -70,6 +70,18 @@ async function startEnrichment(params, port) {
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After") || "60";
+        port.postMessage({
+          type: "error",
+          data: {
+            message: "Rate limit exceeded",
+            retryAfter: parseInt(retryAfter, 10),
+          },
+        });
+        return;
+      }
+
       let detail = "";
       try {
         detail = await response.text();

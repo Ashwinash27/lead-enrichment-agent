@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "One-click lead enrichment from LinkedIn profiles",
   "permissions": ["activeTab", "storage", "scripting"],
-  "host_permissions": ["http://localhost:8000/*"],
+  "host_permissions": ["http://localhost:8000/*", "https://*.up.railway.app/*"],
   "background": {
     "service_worker": "background.js"
   },

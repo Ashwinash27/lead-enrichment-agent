@@ -10,6 +10,7 @@
   let profileData = null;
   let enrichmentStartTime = 0;
   let isEnriching = false;
+  let countdownTimer = null;
 
   const PHASES = {
     planner: { weight: 10, done: false },
@@ -48,7 +49,27 @@
     });
 
     await checkLinkedInProfile();
+    await checkBackendHealth();
   });
+
+  // ── Backend Health Check ───────────────────────────────────────────
+
+  async function checkBackendHealth() {
+    try {
+      const settings = await chrome.storage.local.get(["serverUrl"]);
+      const serverUrl = (settings.serverUrl || "http://localhost:8000").replace(/\/+$/, "");
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+
+      const resp = await fetch(`${serverUrl}/health`, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (!resp.ok) throw new Error("unhealthy");
+    } catch (_) {
+      showError("Backend unreachable. Check server URL in settings.");
+      document.getElementById("btn-enrich").disabled = true;
+    }
+  }
 
   // ── LinkedIn Profile Detection ─────────────────────────────────────
 
@@ -205,7 +226,11 @@
         handleComplete(event.data);
         break;
       case "error":
-        showError(event.data.message || "Unknown error");
+        if (event.data.retryAfter) {
+          showRateLimitCountdown(event.data.retryAfter);
+        } else {
+          showError(event.data.message || "Unknown error");
+        }
         finishEnrichment();
         break;
       case "heartbeat":
@@ -482,8 +507,30 @@
   // ── Utilities ──────────────────────────────────────────────────────
 
   function showError(message) {
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
     document.getElementById("section-errors").classList.remove("hidden");
     document.getElementById("error-message").textContent = message;
+  }
+
+  function showRateLimitCountdown(seconds) {
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    const section = document.getElementById("section-errors");
+    const msgEl = document.getElementById("error-message");
+    section.classList.remove("hidden");
+
+    let remaining = seconds;
+    msgEl.textContent = `Rate limit exceeded. Try again in ${remaining}s`;
+
+    countdownTimer = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        section.classList.add("hidden");
+      } else {
+        msgEl.textContent = `Rate limit exceeded. Try again in ${remaining}s`;
+      }
+    }, 1000);
   }
 
   async function copyToClipboard(text, buttonId) {
