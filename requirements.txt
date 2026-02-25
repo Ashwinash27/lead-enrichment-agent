@@ -12,3 +12,4 @@ langgraph
 qdrant-client
 openai
 langfuse
+jinja2

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead Research Agent</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <!-- ── Hero + Search ─────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="container">
+      <h1 class="hero-title">Lead Research Agent</h1>
+      <p class="hero-subtitle">AI-powered lead enrichment. Enter a name, get a complete profile with talking points.</p>
+
+      <form id="enrich-form" class="search-form">
+        <div class="form-row">
+          <input type="text" id="input-name" placeholder="Full name" required autocomplete="off">
+          <input type="text" id="input-company" placeholder="Company (optional)" autocomplete="off">
+        </div>
+        <div class="form-actions">
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn active" data-use-case="sales">Sales</button>
+            <button type="button" class="toggle-btn" data-use-case="recruiting">Recruiting</button>
+            <button type="button" class="toggle-btn" data-use-case="job_search">Job Search</button>
+          </div>
+          <button type="submit" id="btn-submit" class="btn-primary">Enrich</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ── Results ───────────────────────────────────────────────── -->
+  <section id="results" class="container hidden">
+    <!-- Loading -->
+    <div id="loading" class="loading-state hidden">
+      <div class="spinner"></div>
+      <p id="loading-text">Researching...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error-box" class="error-box hidden">
+      <p id="error-message"></p>
+      <p id="error-countdown" class="hidden"></p>
+    </div>
+
+    <!-- Profile Card -->
+    <div id="profile-card" class="profile-card hidden">
+      <!-- Header -->
+      <div class="card-header">
+        <div>
+          <h2 id="profile-name" class="profile-name"></h2>
+          <p id="profile-role" class="profile-role"></p>
+          <p id="profile-location" class="profile-location"></p>
+        </div>
+        <div class="badges">
+          <span id="badge-latency" class="badge badge-latency"></span>
+          <span id="badge-sources" class="badge badge-muted"></span>
+        </div>
+      </div>
+
+      <!-- Links -->
+      <div id="profile-links" class="profile-links hidden">
+        <a id="link-github" href="#" target="_blank" rel="noopener" class="profile-link hidden">GitHub</a>
+        <a id="link-linkedin" href="#" target="_blank" rel="noopener" class="profile-link hidden">LinkedIn</a>
+        <a id="link-website" href="#" target="_blank" rel="noopener" class="profile-link hidden">Website</a>
+        <a id="link-twitter" href="#" target="_blank" rel="noopener" class="profile-link hidden">Twitter</a>
+      </div>
+
+      <!-- About -->
+      <div id="section-about" class="card-section hidden">
+        <h3>About</h3>
+        <p id="about-bio"></p>
+        <div id="about-details" class="detail-grid">
+          <div id="detail-education" class="hidden"><span class="label">Education</span><span id="education-value"></span></div>
+          <div id="detail-previous" class="hidden"><span class="label">Previous</span><span id="previous-value"></span></div>
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div id="section-email" class="card-section hidden">
+        <h3>Email</h3>
+        <div class="email-row">
+          <span id="email-value" class="email-text"></span>
+          <span id="email-confidence" class="badge"></span>
+          <button id="btn-copy-email" class="btn-icon" title="Copy email">&#128203;</button>
+        </div>
+      </div>
+
+      <!-- GitHub + Skills -->
+      <div class="card-row">
+        <div id="section-github" class="card-section card-half hidden">
+          <h3>GitHub</h3>
+          <div class="github-stats">
+            <div class="stat"><span id="gh-repos" class="stat-value">0</span><span class="stat-label">Repos</span></div>
+            <div class="stat"><span id="gh-followers" class="stat-value">0</span><span class="stat-label">Followers</span></div>
+            <div class="stat"><span id="gh-activity" class="stat-value">-</span><span class="stat-label">Activity</span></div>
+          </div>
+          <div id="gh-languages" class="tag-list"></div>
+          <a id="gh-link" href="#" target="_blank" rel="noopener" class="link">View profile</a>
+        </div>
+
+        <div id="section-skills" class="card-section card-half hidden">
+          <h3>Skills</h3>
+          <div id="skills-list" class="tag-list"></div>
+        </div>
+      </div>
+
+      <!-- News -->
+      <div id="section-news" class="card-section hidden">
+        <h3>Recent News</h3>
+        <ul id="news-list" class="news-list"></ul>
+      </div>
+
+      <!-- Talking Points -->
+      <div id="section-points" class="card-section hidden">
+        <div class="section-header">
+          <h3>Talking Points</h3>
+          <button id="btn-copy-points" class="btn-icon" title="Copy all">&#128203;</button>
+        </div>
+        <ol id="points-list" class="points-list"></ol>
+      </div>
+
+      <!-- Confidence + Sources -->
+      <div class="card-footer">
+        <div id="confidence-scores" class="confidence-bar"></div>
+        <p id="sources-summary" class="text-muted"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Architecture ──────────────────────────────────────────── -->
+  <section class="architecture container">
+    <h2 class="section-title">How It Works</h2>
+    <div class="pipeline">
+      <div class="pipeline-phase phase-a">
+        <div class="phase-label">Phase A</div>
+        <div class="phase-desc">Concurrent</div>
+        <div class="phase-tools">
+          <span class="tool-box">Planner</span>
+          <span class="tool-box">GitHub</span>
+          <span class="tool-box">News</span>
+          <span class="tool-box">Community</span>
+        </div>
+      </div>
+      <div class="arrow"></div>
+      <div class="pipeline-phase phase-b">
+        <div class="phase-label">Phase B</div>
+        <div class="phase-desc">Planner-dependent</div>
+        <div class="phase-tools">
+          <span class="tool-box">Web Search</span>
+          <span class="tool-box">Browser</span>
+        </div>
+      </div>
+      <div class="arrow"></div>
+      <div class="pipeline-phase phase-b5">
+        <div class="phase-label">Phase B.5</div>
+        <div class="phase-desc">Email Waterfall</div>
+        <div class="phase-tools">
+          <span class="tool-box">GitHub</span>
+          <span class="tool-box">Regex</span>
+          <span class="tool-box">SMTP</span>
+          <span class="tool-box">Prospeo</span>
+          <span class="tool-box">Hunter</span>
+        </div>
+      </div>
+      <div class="arrow"></div>
+      <div class="pipeline-phase phase-c">
+        <div class="phase-label">Phase C</div>
+        <div class="phase-desc">Extract + Synthesize</div>
+        <div class="phase-tools">
+          <span class="tool-box">Extractor</span>
+          <span class="tool-box">Talking Points</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Tech Stack</h2>
+    <div class="tech-badges">
+      <span class="tech-badge tech-claude">Claude</span>
+      <span class="tech-badge tech-langgraph">LangGraph</span>
+      <span class="tech-badge tech-fastapi">FastAPI</span>
+      <span class="tech-badge tech-playwright">Playwright</span>
+      <span class="tech-badge tech-serper">Serper</span>
+      <span class="tech-badge tech-github">GitHub API</span>
+      <span class="tech-badge tech-prospeo">Prospeo</span>
+      <span class="tech-badge tech-hunter">Hunter.io</span>
+      <span class="tech-badge tech-qdrant">Qdrant</span>
+    </div>
+  </section>
+
+  <footer class="container">
+    <p class="text-muted">Built with Claude &middot; 7 research tools &middot; 2 LLM calls per request</p>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

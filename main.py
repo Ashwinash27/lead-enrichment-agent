@@ -1,14 +1,19 @@
 import logging
+import pathlib
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from agent.orchestrator import enrich_lead, enrich_lead_streaming
 from agent.schemas import EnrichRequest, EnrichResponse
 from agent import semantic_cache
 from config import CORS_ORIGINS, ENRICHMENT_API_KEY
 from middleware import RateLimitMiddleware
+
+_BASE = pathlib.Path(__file__).resolve().parent
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,6 +24,8 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 app = FastAPI(title="Lead Research Agent", version="0.2.0")
+app.mount("/static", StaticFiles(directory=_BASE / "static"), name="static")
+_templates = Jinja2Templates(directory=_BASE / "templates")
 
 
 @app.on_event("shutdown")
@@ -56,6 +63,11 @@ def _check_api_key(request: Request) -> None:
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────
+
+
+@app.get("/")
+async def homepage(request: Request):
+    return _templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/health")
