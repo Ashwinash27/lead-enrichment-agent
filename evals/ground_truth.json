@@ -191,6 +191,90 @@
           "sources": 1
         }
       }
+    },
+    {
+      "id": "no-company-indie",
+      "name": "Pieter Levels",
+      "company": "",
+      "use_case": "job_search",
+      "expected": {
+        "exact": {},
+        "contains": {
+          "name": ["Pieter"]
+        },
+        "non_empty": ["name"],
+        "list_min_length": {
+          "talking_points": 2,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "non-developer",
+      "name": "Packy McCormick",
+      "company": "Not Boring",
+      "use_case": "sales",
+      "expected": {
+        "exact": {},
+        "contains": {
+          "name": ["Packy"]
+        },
+        "non_empty": ["name"],
+        "list_min_length": {
+          "talking_points": 2,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "common-name-disambiguation",
+      "name": "Alex Chen",
+      "company": "Stripe",
+      "use_case": "recruiting",
+      "expected": {
+        "exact": {},
+        "contains": {
+          "name": ["Alex"]
+        },
+        "non_empty": ["name"],
+        "list_min_length": {
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "international-name",
+      "name": "Shola Akinlade",
+      "company": "Paystack",
+      "use_case": "sales",
+      "expected": {
+        "exact": {},
+        "contains": {
+          "name": ["Shola"],
+          "company": ["Paystack"]
+        },
+        "non_empty": ["name"],
+        "list_min_length": {
+          "talking_points": 2,
+          "sources": 1
+        }
+      }
+    },
+    {
+      "id": "no-hints-common-name",
+      "name": "Ben Thompson",
+      "company": "",
+      "use_case": "job_search",
+      "expected": {
+        "exact": {},
+        "contains": {
+          "name": ["Ben"]
+        },
+        "non_empty": ["name"],
+        "list_min_length": {
+          "sources": 1
+        }
+      }
     }
   ]
 }
