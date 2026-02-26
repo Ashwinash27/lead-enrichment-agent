@@ -100,9 +100,9 @@ class GitHubTool:
     async def _request(self, client: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
         resp = await client.get(url, headers=self._headers(), **kwargs)
         if resp.status_code == 401 and self._use_auth:
-            logger.warning("GitHub token rejected, falling back to unauthenticated")
-            self._use_auth = False
-            resp = await client.get(url, headers=self._headers(), **kwargs)
+            logger.warning("GitHub token rejected on %s, retrying unauthenticated", url)
+            fallback_headers = {"Accept": "application/vnd.github+json"}
+            resp = await client.get(url, headers=fallback_headers, **kwargs)
         return resp
 
     async def _search_user(

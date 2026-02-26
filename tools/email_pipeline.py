@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
 
+import dns.resolver
 import httpx
 
 from agent.cache import cache
@@ -219,7 +221,6 @@ class EmailPipeline:
             return "", 0.0, ""
 
         try:
-            import asyncio
             return await asyncio.wait_for(
                 self._layer_smtp_inner(first, last, domains),
                 timeout=self.SMTP_LAYER_TIMEOUT,
@@ -231,8 +232,6 @@ class EmailPipeline:
     async def _layer_smtp_inner(
         self, first: str, last: str, domains: list[str]
     ) -> tuple[str, float, str]:
-        import asyncio
-
         patterns = [first]
         if last:
             patterns.extend([
@@ -261,10 +260,7 @@ class EmailPipeline:
     async def _check_mx(self, domain: str) -> tuple[bool, str]:
         """Check if domain has MX records. Returns (has_mx, mx_host)."""
         try:
-            import asyncio
-            import dns.resolver
-
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             answers = await loop.run_in_executor(
                 None, lambda: dns.resolver.resolve(domain, "MX")
             )
@@ -278,8 +274,6 @@ class EmailPipeline:
     async def _smtp_verify(self, email: str, mx_host: str) -> bool:
         """SMTP RCPT TO verification. 3s timeout per connection."""
         try:
-            import asyncio
-
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(mx_host, 25), timeout=3
             )

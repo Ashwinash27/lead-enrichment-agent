@@ -135,7 +135,7 @@ class PlaywrightTool:
         hostname = urlparse(url).hostname or ""
         if not hostname:
             return False
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
             return True
@@ -149,7 +149,7 @@ class PlaywrightTool:
             browser = await _get_browser(proxy_cfg)
             context = await browser.new_context(
                 user_agent=USER_AGENT,
-                ignore_https_errors=True,
+                ignore_https_errors=bool(proxy_cfg),
             )
             page = await context.new_page()
             await page.goto(
