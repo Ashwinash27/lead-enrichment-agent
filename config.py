@@ -32,3 +32,4 @@ MAX_CONCURRENT_ENRICHMENTS: int = int(os.getenv("MAX_CONCURRENT_ENRICHMENTS", "5
 CORS_ORIGINS: list[str] = [
     o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()
 ]
+CHROME_EXTENSION_ID: str = os.getenv("CHROME_EXTENSION_ID", "")

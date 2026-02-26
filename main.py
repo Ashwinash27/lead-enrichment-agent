@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import re
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from agent.orchestrator import enrich_lead, enrich_lead_streaming
 from agent.schemas import EnrichRequest, EnrichResponse
 from agent import semantic_cache
-from config import CORS_ORIGINS, ENRICHMENT_API_KEY
+from config import CHROME_EXTENSION_ID, CORS_ORIGINS, ENRICHMENT_API_KEY
 from middleware import RateLimitMiddleware
 
 _BASE = pathlib.Path(__file__).resolve().parent
@@ -43,7 +44,11 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
-    allow_origin_regex=r"^chrome-extension://.*$",
+    allow_origin_regex=(
+        rf"^chrome-extension://{re.escape(CHROME_EXTENSION_ID)}$"
+        if CHROME_EXTENSION_ID
+        else r"^chrome-extension://.*$"
+    ),
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
