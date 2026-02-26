@@ -102,28 +102,49 @@ async function startEnrichment(params, port) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let inactivityTimer = null;
+    const INACTIVITY_TIMEOUT = 45000; // 45s
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    const resetTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        cancelEnrichment();
+        if (activePort) {
+          activePort.postMessage({
+            type: "error",
+            data: { message: "Connection timed out — no data received for 45s" },
+          });
+        }
+      }, INACTIVITY_TIMEOUT);
+    };
 
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      resetTimer();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      // Parse SSE events from buffer
-      const result = parseSSEBuffer(buffer);
-      buffer = result.remaining;
+        resetTimer();
+        buffer += decoder.decode(value, { stream: true });
 
-      for (const event of result.parsed) {
-        try {
-          if (activePort) {
-            activePort.postMessage(event);
+        // Parse SSE events from buffer
+        const result = parseSSEBuffer(buffer);
+        buffer = result.remaining;
+
+        for (const event of result.parsed) {
+          try {
+            if (activePort) {
+              activePort.postMessage(event);
+            }
+          } catch (_) {
+            // Port disconnected
+            cancelEnrichment();
+            return;
           }
-        } catch (_) {
-          // Port disconnected
-          cancelEnrichment();
-          return;
         }
       }
+    } finally {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
     }
   } catch (e) {
     if (e.name === "AbortError") return;
@@ -169,7 +190,7 @@ function parseSSEBuffer(buffer) {
         const data = JSON.parse(dataStr);
         parsed.push({ type: eventType, data });
       } catch (_) {
-        // Skip malformed JSON
+        console.warn(`SSE parse error [${eventType}]:`, dataStr.slice(0, 200));
       }
     }
   }

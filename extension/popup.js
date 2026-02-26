@@ -11,6 +11,7 @@
   let enrichmentStartTime = 0;
   let isEnriching = false;
   let countdownTimer = null;
+  let processedEvents = new Set();
 
   const PHASES = {
     planner: { weight: 10, done: false },
@@ -203,6 +204,14 @@
   // ── Event Handling ─────────────────────────────────────────────────
 
   function handleEvent(event) {
+    // Dedup: skip duplicate events (except heartbeat/complete/error which are always processed)
+    const skipDedup = ["heartbeat", "complete", "error"];
+    if (!skipDedup.includes(event.type)) {
+      const key = `${event.type}:${event.data?.tool || ""}:${event.data?.status || event.data?.phase || ""}`;
+      if (processedEvents.has(key)) return;
+      processedEvents.add(key);
+    }
+
     switch (event.type) {
       case "status":
         handleStatus(event.data);
@@ -492,6 +501,7 @@
 
   function resetSections() {
     for (const p of Object.values(PHASES)) p.done = false;
+    processedEvents.clear();
     document.getElementById("progress-fill").style.width = "0%";
 
     ["section-bio", "section-email", "section-github", "section-news",

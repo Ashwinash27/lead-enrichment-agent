@@ -36,7 +36,12 @@
       font-size: 14px;
     }
     button:hover { background: #3a7ae8; }
-    .saved { color: #34d399; font-size: 13px; margin-left: 12px; display: none; }
+    #test-connection { background: transparent; border: 1px solid #4f8cff; margin-left: 8px; }
+    #test-connection:hover { background: #4f8cff22; }
+    .status { font-size: 13px; margin-left: 12px; display: none; }
+    .status.success { color: #34d399; }
+    .status.error { color: #f87171; }
+    .status.info { color: #a0a0b8; }
     .hint { font-size: 11px; color: #6b7280; margin-top: -12px; margin-bottom: 16px; }
   </style>
 </head>
@@ -52,7 +57,8 @@
   <p class="hint">X-API-Key header sent with every request</p>
 
   <button id="save">Save</button>
-  <span class="saved" id="saved-msg">Saved!</span>
+  <button id="test-connection">Test Connection</button>
+  <span class="status" id="status-msg"></span>
 
   <script src="options.js"></script>
 </body>

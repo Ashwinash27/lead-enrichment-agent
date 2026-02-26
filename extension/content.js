@@ -11,14 +11,16 @@
   // ── Name extraction ────────────────────────────────────────────────
 
   function extractName() {
-    // Cascade from most specific to most generic
+    // Cascade from most stable (semantic/aria) to LinkedIn-specific class selectors
     const selectors = [
+      '[data-anonymize="person-name"]',
+      '[role="heading"][aria-level="1"]',
+      "h1",
       "h1.text-heading-xlarge",
       'h1[class*="text-heading"]',
       "div.ph5 h1",
       "section.pv-top-card h1",
       ".pv-text-details__left-panel h1",
-      "h1",
     ];
 
     for (const sel of selectors) {
