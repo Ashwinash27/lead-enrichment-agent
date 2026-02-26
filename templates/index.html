@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI-powered lead enrichment agent. Enter a name and company to get a structured profile with email, GitHub, talking points, and more.">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta property="og:title" content="Lead Research Agent">
+  <meta property="og:description" content="AI-powered lead enrichment. Enter a name, get a complete profile with talking points.">
+  <meta property="og:type" content="website">
   <title>Lead Research Agent</title>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -15,8 +20,8 @@
 
       <form id="enrich-form" class="search-form">
         <div class="form-row">
-          <input type="text" id="input-name" placeholder="Full name" required autocomplete="off">
-          <input type="text" id="input-company" placeholder="Company (optional)" autocomplete="off">
+          <input type="text" id="input-name" placeholder="Full name" required autocomplete="off" aria-label="Full name">
+          <input type="text" id="input-company" placeholder="Company (optional)" autocomplete="off" aria-label="Company">
         </div>
         <div class="form-actions">
           <div class="toggle-group">
@@ -27,6 +32,7 @@
           <button type="submit" id="btn-submit" class="btn-primary">Enrich</button>
         </div>
       </form>
+      <p class="example-link"><a href="#" id="try-example">Try an example: Guillermo Rauch @ Vercel</a></p>
     </div>
   </section>
 
@@ -34,7 +40,7 @@
   <section id="results" class="container hidden">
     <!-- Loading -->
     <div id="loading" class="loading-state hidden">
-      <div class="spinner"></div>
+      <div class="spinner" role="status" aria-label="Loading"></div>
       <p id="loading-text">Researching...</p>
     </div>
 
@@ -83,7 +89,7 @@
         <div class="email-row">
           <span id="email-value" class="email-text"></span>
           <span id="email-confidence" class="badge"></span>
-          <button id="btn-copy-email" class="btn-icon" title="Copy email">&#128203;</button>
+          <button id="btn-copy-email" class="btn-icon" title="Copy email" aria-label="Copy email">&#128203;</button>
         </div>
       </div>
 
@@ -116,14 +122,14 @@
       <div id="section-points" class="card-section hidden">
         <div class="section-header">
           <h3>Talking Points</h3>
-          <button id="btn-copy-points" class="btn-icon" title="Copy all">&#128203;</button>
+          <button id="btn-copy-points" class="btn-icon" title="Copy all" aria-label="Copy talking points">&#128203;</button>
         </div>
         <ol id="points-list" class="points-list"></ol>
       </div>
 
       <!-- Confidence + Sources -->
       <div class="card-footer">
-        <div id="confidence-scores" class="confidence-bar"></div>
+        <div id="confidence-scores" class="confidence-bar" role="list" aria-label="Confidence scores"></div>
         <p id="sources-summary" class="text-muted"></p>
       </div>
     </div>

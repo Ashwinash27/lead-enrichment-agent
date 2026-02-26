@@ -137,6 +137,19 @@ body {
 .btn-primary:hover { background: var(--accent-hover); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.example-link {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.example-link a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.example-link a:hover { color: var(--accent); }
+
 /* ── Loading ───────────────────────────────────────────────────── */
 
 .loading-state {
@@ -227,6 +240,7 @@ body {
 .badge-high { background: rgba(52, 211, 153, 0.15); color: var(--success); }
 .badge-medium { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
 .badge-low { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+.badge-cached { background: rgba(52, 211, 153, 0.15); color: var(--success); font-size: 11px; }
 
 /* Links */
 .profile-links {
@@ -561,6 +575,25 @@ footer {
   .arrow { width: 2px; height: 24px; }
   .arrow::after { right: -4px; top: auto; bottom: 0; border: 5px solid transparent; border-top: 6px solid var(--border); }
   .card-header { flex-direction: column; }
+}
+
+@media (max-width: 1024px) {
+  .container { max-width: 100%; }
+  .pipeline { gap: 4px; }
+  .pipeline-phase { min-width: 120px; padding: 12px; }
+  .arrow { width: 20px; }
+}
+
+@media (max-width: 375px) {
+  .hero { padding: 40px 12px 24px; }
+  .hero-title { font-size: 1.5rem; }
+  .hero-subtitle { font-size: 0.9rem; }
+  .toggle-btn { padding: 6px 10px; font-size: 12px; }
+  .card-section { padding: 12px 16px; }
+  .card-header { padding: 16px; }
+  .profile-name { font-size: 1.2rem; }
+  .github-stats { gap: 12px; }
+  .stat-value { font-size: 15px; }
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────────── */

@@ -19,6 +19,17 @@
     // Form submit
     document.getElementById("enrich-form").addEventListener("submit", handleSubmit);
 
+    // Try example link
+    const exampleLink = document.getElementById("try-example");
+    if (exampleLink) {
+      exampleLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        document.getElementById("input-name").value = "Guillermo Rauch";
+        document.getElementById("input-company").value = "Vercel";
+        document.getElementById("btn-submit").focus();
+      });
+    }
+
     // Copy buttons
     document.getElementById("btn-copy-email").addEventListener("click", () => {
       const email = document.getElementById("email-value").textContent;
@@ -100,7 +111,12 @@
     document.getElementById("profile-location").textContent = profile.location || "";
 
     // Badges
-    document.getElementById("badge-latency").textContent = `${(data.latency_ms / 1000).toFixed(1)}s`;
+    const latencyBadge = document.getElementById("badge-latency");
+    latencyBadge.textContent = `${(data.latency_ms / 1000).toFixed(1)}s`;
+    if (data.latency_ms < 500) {
+      latencyBadge.insertAdjacentHTML("afterend",
+        ' <span class="badge badge-cached">Cached</span>');
+    }
     document.getElementById("badge-sources").textContent =
       `${data.sources_searched ? data.sources_searched.length : 0} sources`;
 
