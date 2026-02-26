@@ -327,16 +327,24 @@ async def extractor_node(state: AgentState) -> dict:
 
     successful_results = [tr for tr in state.get("tool_results", []) if tr.success]
 
-    profile, talking_points = await asyncio.gather(
-        extract(
+    if len(successful_results) < 2:
+        logger.info(f"[{trace_id}] Sparse data ({len(successful_results)} tools) — skipping talking points")
+        profile = await extract(
             state["name"], state["company"], successful_results, trace_id,
             location=state.get("location", ""),
-        ),
-        generate_talking_points(
-            state["name"], state["company"], successful_results, trace_id,
-            use_case=state.get("use_case", "sales"),
-        ),
-    )
+        )
+        talking_points = []
+    else:
+        profile, talking_points = await asyncio.gather(
+            extract(
+                state["name"], state["company"], successful_results, trace_id,
+                location=state.get("location", ""),
+            ),
+            generate_talking_points(
+                state["name"], state["company"], successful_results, trace_id,
+                use_case=state.get("use_case", "sales"),
+            ),
+        )
 
     if profile:
         await _emit(state, {"type": "profile", "data": profile.model_dump()})

@@ -16,6 +16,14 @@ logger = logging.getLogger(__name__)
 
 _enrichment_semaphore = asyncio.Semaphore(MAX_CONCURRENT_ENRICHMENTS)
 
+# ── Request deduplication ─────────────────────────────────────────────
+_inflight: dict[str, asyncio.Event] = {}
+_inflight_results: dict[str, EnrichResponse] = {}
+
+
+def _dedup_key(request: EnrichRequest) -> str:
+    return f"{request.name}:{request.company}:{request.use_case}".lower()
+
 
 async def enrich_lead(request: EnrichRequest) -> EnrichResponse:
     trace_id = uuid.uuid4().hex[:12]
@@ -40,45 +48,71 @@ async def enrich_lead(request: EnrichRequest) -> EnrichResponse:
         )
         return cached
 
-    # ── Full pipeline ────────────────────────────────────────────────
-    initial_state = {
-        "name": request.name,
-        "company": request.company,
-        "location": request.location,
-        "use_case": request.use_case,
-        "output_format": request.output_format,
-        "trace_id": trace_id,
-        "t0": t0,
-        "tool_results": [],
-        "errors": [],
-    }
+    # ── Deduplication: wait if same request is already in-flight ──────
+    key = _dedup_key(request)
+    if key in _inflight:
+        logger.info(f"[{trace_id}] Dedup: waiting on in-flight request for {key}")
+        await _inflight[key].wait()
+        if key in _inflight_results:
+            result = _inflight_results[key]
+            result = result.model_copy(update={"trace_id": trace_id, "latency_ms": round((time.time() - t0) * 1000, 1)})
+            return result
 
-    async with _enrichment_semaphore:
-        final = await graph.ainvoke(initial_state)
+    # ── Register as in-flight ─────────────────────────────────────────
+    event = asyncio.Event()
+    _inflight[key] = event
 
-        tool_results = final.get("tool_results", [])
-        sources_searched = [tr.tool_name for tr in tool_results]
-        successful = [tr for tr in tool_results if tr.success]
+    try:
+        # ── Full pipeline ────────────────────────────────────────────
+        initial_state = {
+            "name": request.name,
+            "company": request.company,
+            "location": request.location,
+            "use_case": request.use_case,
+            "output_format": request.output_format,
+            "trace_id": trace_id,
+            "t0": t0,
+            "tool_results": [],
+            "errors": [],
+        }
 
-        response = EnrichResponse(
-            success=len(successful) > 0,
-            trace_id=trace_id,
-            profile=final.get("profile"),
-            sources_searched=sources_searched,
-            errors=final.get("errors", []),
-            latency_ms=final.get("latency_ms", 0.0),
-            narrative=final.get("narrative", ""),
-            talking_points=final.get("talking_points", []),
-        )
+        async with _enrichment_semaphore:
+            final = await graph.ainvoke(initial_state)
 
-        # ── Cache successful responses ───────────────────────────────
-        if response.success:
-            await semantic_cache.store(request, response, trace_id)
+            tool_results = final.get("tool_results", [])
+            sources_searched = [tr.tool_name for tr in tool_results]
+            successful = [tr for tr in tool_results if tr.success]
 
-        observe.cleanup_trace(trace_id)
-        observe.flush()
+            response = EnrichResponse(
+                success=len(successful) > 0,
+                trace_id=trace_id,
+                profile=final.get("profile"),
+                sources_searched=sources_searched,
+                errors=final.get("errors", []),
+                latency_ms=final.get("latency_ms", 0.0),
+                narrative=final.get("narrative", ""),
+                talking_points=final.get("talking_points", []),
+            )
 
-        return response
+            # ── Cache successful responses ───────────────────────────
+            if response.success:
+                await semantic_cache.store(request, response, trace_id)
+
+            observe.cleanup_trace(trace_id)
+            observe.flush()
+
+            # Store result for waiting duplicates
+            _inflight_results[key] = response
+
+            return response
+    finally:
+        event.set()
+        # Clean up after a short delay so waiters can read the result
+        async def _cleanup() -> None:
+            await asyncio.sleep(1)
+            _inflight.pop(key, None)
+            _inflight_results.pop(key, None)
+        asyncio.create_task(_cleanup())
 
 
 # ── SSE Streaming ────────────────────────────────────────────────────────

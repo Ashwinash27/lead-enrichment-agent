@@ -22,10 +22,19 @@ PER_TOOL_MAX = 3000
 INITIAL_MAX_TOKENS = 4000
 RETRY_MAX_TOKENS = 6000
 
+_system_prompt_cache: dict[str, str] = {}
+
 
 def _build_system_prompt() -> str:
     today = date.today().isoformat()
-    return f"""You are a precision data extraction specialist. Given raw research data about a person, extract structured information into a JSON profile.
+    cached = _system_prompt_cache.get(today)
+    if cached is not None:
+        return cached
+    # Clear stale date keys
+    for key in list(_system_prompt_cache):
+        if key != today:
+            del _system_prompt_cache[key]
+    prompt = f"""You are a precision data extraction specialist. Given raw research data about a person, extract structured information into a JSON profile.
 
 Rules:
 - NEVER fabricate information. Only extract what is explicitly stated in the data.
@@ -131,6 +140,8 @@ Return ONLY a JSON object matching this exact schema (no markdown fences):
 }}
 
 If no GitHub data is found, set "github": null."""
+    _system_prompt_cache[today] = prompt
+    return prompt
 
 
 def _repair_truncated_json_object(raw: str) -> dict | None:
