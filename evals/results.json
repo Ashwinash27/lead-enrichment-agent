@@ -1,13 +1,13 @@
 {
-  "wall_clock_s": 47.6,
-  "avg_score": 1.0,
-  "hunter_l4_hits": 1,
+  "wall_clock_s": 657.7,
+  "avg_score": 0.9831,
+  "hunter_l4_hits": 0,
   "cases": [
     {
       "case_id": "guillermo-rauch",
       "name": "Guillermo Rauch",
       "company": "Vercel",
-      "elapsed_s": 47.6,
+      "elapsed_s": 70.7,
       "success": true,
       "error": "",
       "overall_score": 1.0,
@@ -24,8 +24,297 @@
         "list_min:sources": 1.0
       },
       "response_success": true,
-      "email_found": "guillermo.rauch@vercel.com",
+      "email_found": "guillermo.rauch@vercel.co",
       "github_found": "rauchg",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "dhh",
+      "name": "David Heinemeier Hansson",
+      "company": "37signals",
+      "elapsed_s": 52.0,
+      "success": true,
+      "error": "",
+      "overall_score": 0.8889,
+      "checks": {
+        "exact:github_username": 1.0,
+        "contains:role": 0.0,
+        "contains:company": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:skills": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:skills": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "hansson@basecamp.com",
+      "github_found": "dhh",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "mitchell-hashimoto",
+      "name": "Mitchell Hashimoto",
+      "company": "Ghostty",
+      "elapsed_s": 32.9,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "exact:github_username": 1.0,
+        "contains:name": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:skills": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:skills": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "mitchellh",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "satya-nadella",
+      "name": "Satya Nadella",
+      "company": "Microsoft",
+      "elapsed_s": 38.9,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "contains:role": 1.0,
+        "contains:company": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:name": 1.0,
+        "non_empty:role": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:recent_news": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "satyan@microsoft.com",
+      "github_found": "satyanadella",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "sarah-drasner",
+      "name": "Sarah Drasner",
+      "company": "Google",
+      "elapsed_s": 40.3,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "exact:github_username": 1.0,
+        "contains:name": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:skills": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:skills": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "sdras",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "kelsey-hightower",
+      "name": "Kelsey Hightower",
+      "company": "Google",
+      "elapsed_s": 39.7,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "exact:github_username": 1.0,
+        "contains:name": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:skills": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "kelseyhightower",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "theo-browne",
+      "name": "Theo Browne",
+      "company": "Ping.gg",
+      "elapsed_s": 42.1,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "exact:github_username": 1.0,
+        "contains:name": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "theo@gg.com",
+      "github_found": "t3dotgg",
+      "talking_points_count": 6
+    },
+    {
+      "case_id": "fictional-person",
+      "name": "Zxyqwp Kmnrst",
+      "company": "NonexistentCorp9999",
+      "elapsed_s": 18.9,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "non_empty:name": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "",
+      "talking_points_count": 5
+    },
+    {
+      "case_id": "julia-evans",
+      "name": "Julia Evans",
+      "company": "Mess With DNS",
+      "elapsed_s": 29.5,
+      "success": true,
+      "error": "",
+      "overall_score": 0.8571,
+      "checks": {
+        "exact:github_username": 0.0,
+        "contains:name": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:skills": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "julia-evans",
+      "talking_points_count": 6
+    },
+    {
+      "case_id": "arvid-kahl",
+      "name": "Arvid Kahl",
+      "company": "",
+      "elapsed_s": 31.3,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "exact:github_username": 1.0,
+        "contains:name": 1.0,
+        "non_empty:bio": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "arvidkahl",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "no-company-indie",
+      "name": "Pieter Levels",
+      "company": "",
+      "elapsed_s": 62.4,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "contains:name": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "non-developer",
+      "name": "Packy McCormick",
+      "company": "Not Boring",
+      "elapsed_s": 36.4,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "contains:name": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "packy@notboring.co",
+      "github_found": "packyM",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "common-name-disambiguation",
+      "name": "Alex Chen",
+      "company": "Stripe",
+      "elapsed_s": 100.4,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "contains:name": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "chenlushun",
+      "talking_points_count": 7
+    },
+    {
+      "case_id": "international-name",
+      "name": "Shola Akinlade",
+      "company": "Paystack",
+      "elapsed_s": 28.6,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "contains:name": 1.0,
+        "contains:company": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:talking_points": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "shola@paystack.com",
+      "github_found": "shollsman",
+      "talking_points_count": 6
+    },
+    {
+      "case_id": "no-hints-common-name",
+      "name": "Ben Thompson",
+      "company": "",
+      "elapsed_s": 33.5,
+      "success": true,
+      "error": "",
+      "overall_score": 1.0,
+      "checks": {
+        "contains:name": 1.0,
+        "non_empty:name": 1.0,
+        "list_min:sources": 1.0
+      },
+      "response_success": true,
+      "email_found": "",
+      "github_found": "BenThompson-Dev",
       "talking_points_count": 7
     }
   ]

@@ -3,202 +3,407 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="AI-powered lead enrichment agent. Enter a name and company to get a structured profile with email, GitHub, talking points, and more.">
-  <meta name="theme-color" content="#1a1a2e">
-  <meta property="og:title" content="Lead Research Agent">
-  <meta property="og:description" content="AI-powered lead enrichment. Enter a name, get a complete profile with talking points.">
-  <meta property="og:type" content="website">
+  <meta name="description" content="AI-powered lead enrichment. 7 sources, 2 LLM calls, one structured profile.">
+  <meta name="theme-color" content="#09090b">
   <title>Lead Research Agent</title>
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css?v=4">
 </head>
 <body>
-  <!-- ── Hero + Search ─────────────────────────────────────────── -->
-  <section class="hero">
-    <div class="container">
-      <h1 class="hero-title">Lead Research Agent</h1>
-      <p class="hero-subtitle">AI-powered lead enrichment. Enter a name, get a complete profile with talking points.</p>
 
-      <form id="enrich-form" class="search-form">
-        <div class="form-row">
-          <input type="text" id="input-name" placeholder="Full name" required autocomplete="off" aria-label="Full name">
-          <input type="text" id="input-company" placeholder="Company (optional)" autocomplete="off" aria-label="Company">
+  <!-- Scroll progress -->
+  <div class="scroll-progress"></div>
+
+  <header class="topbar">
+    <a href="#" class="logo">lead-research-agent<span class="cursor">_</span></a>
+    <nav class="topnav">
+      <a href="#how">Process</a>
+      <a href="#arch">Architecture</a>
+      <a href="#output">Output</a>
+      <a href="#demo">Demo</a>
+      <a href="https://github.com/Ashwinash27/lead-enrichment-agent" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- ── HERO ── -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="hero-content">
+        <p class="hero-label reveal-hero" style="--d:0">Open-source lead enrichment</p>
+        <div class="hero-slogan reveal-hero" style="--d:0.5">
+          <span class="slogan-line">Name in.</span>
+          <span class="slogan-line">Dossier out.</span>
+          <span class="slogan-line slogan-accent">In under a minute.</span>
+        </div>
+        <p class="hero-desc reveal-hero" style="--d:1.5">Feed it a name and company. It fans out across 7 sources, runs a 5-layer email waterfall, and returns structured JSON with talking points. Two LLM calls. ~44s average.</p>
+        <div class="hero-actions reveal-hero" style="--d:2.5">
+          <a href="#demo" class="btn-primary">
+            Try the demo
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m0 0L9 4m4 4L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a href="https://github.com/Ashwinash27/lead-enrichment-agent" target="_blank" rel="noopener" class="btn-secondary">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            Source code
+          </a>
+        </div>
+        <div class="hero-stats reveal-hero" style="--d:3.5">
+          <div class="stat-item" data-count="7" data-suffix=""><span class="stat-num">7</span><span class="stat-desc">data sources</span></div>
+          <div class="stat-item" data-count="2" data-suffix=""><span class="stat-num">2</span><span class="stat-desc">LLM calls</span></div>
+          <div class="stat-item"><span class="stat-num">~44s</span><span class="stat-desc">avg latency</span></div>
+          <div class="stat-item"><span class="stat-num">98.3%</span><span class="stat-desc">eval accuracy</span></div>
+          <div class="stat-item"><span class="stat-num">$0.03</span><span class="stat-desc">per lookup</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FEATURES ── -->
+    <section class="features" id="features">
+      <h2 class="section-heading reveal">What you get back</h2>
+      <div class="feature-grid">
+        <div class="feature-card card-spotlight reveal reveal-d1">
+          <div class="feature-num">01</div>
+          <h3>Structured profile</h3>
+          <p>Name, role, company, bio, education, previous companies, skills — extracted and cross-validated from multiple sources.</p>
+        </div>
+        <div class="feature-card card-spotlight reveal reveal-d2">
+          <div class="feature-num">02</div>
+          <h3>Verified email</h3>
+          <p>5-layer waterfall: GitHub commits, regex, SMTP, Prospeo, Hunter.io. Free methods exhaust before paid APIs fire.</p>
+        </div>
+        <div class="feature-card card-spotlight reveal reveal-d3">
+          <div class="feature-num">03</div>
+          <h3>GitHub intelligence</h3>
+          <p>Repos, languages, followers, activity level. Weighted candidate scoring disambiguates common names.</p>
+        </div>
+        <div class="feature-card card-spotlight reveal reveal-d4">
+          <div class="feature-num">04</div>
+          <h3>Talking points</h3>
+          <p>Context-aware conversation starters tailored to your use case — sales, recruiting, or job search.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── HOW IT WORKS ── -->
+    <section class="explainer" id="how">
+      <h2 class="section-heading reveal">The pipeline</h2>
+      <p class="section-sub reveal">Benchmarked across 15 eval cases. Average end-to-end: 43.8s. Fastest: 18.9s. Slowest: 100.4s (common name disambiguation).</p>
+      <div class="pipeline-text">
+        <div class="pipe-stage reveal reveal-d1">
+          <div class="pipe-meta">
+            <span class="pipe-label">Phase A</span>
+            <span class="pipe-time">5&ndash;8s</span>
+          </div>
+          <div class="pipe-body">
+            <p>Request hits the API. Claude plans search queries while <strong>GitHub, news, and community tools fire simultaneously</strong> via <code>asyncio.gather()</code>. The planner runs alongside deterministic tools — it doesn't block.</p>
+          </div>
+        </div>
+        <div class="pipe-stage reveal reveal-d2">
+          <div class="pipe-meta">
+            <span class="pipe-label">Phase B</span>
+            <span class="pipe-time">6&ndash;10s</span>
+          </div>
+          <div class="pipe-body">
+            <p>Planner output gates this phase. It decides which <strong>Google queries to run and which URLs to scrape</strong> with Playwright. Up to 5 searches, 3 browser scrapes — all concurrent.</p>
+          </div>
+        </div>
+        <div class="pipe-stage reveal reveal-d3">
+          <div class="pipe-meta">
+            <span class="pipe-label">Phase B.5</span>
+            <span class="pipe-time">2&ndash;5s</span>
+          </div>
+          <div class="pipe-body">
+            <p>Email waterfall. Five layers, cheapest first: <strong>GitHub commit emails, regex scan, SMTP verify, Prospeo, Hunter.io</strong>. Most lookups resolve before touching paid APIs.</p>
+          </div>
+        </div>
+        <div class="pipe-stage reveal reveal-d4">
+          <div class="pipe-meta">
+            <span class="pipe-label">Phase C</span>
+            <span class="pipe-time">22&ndash;29s</span>
+          </div>
+          <div class="pipe-body">
+            <p>All results feed into Claude. One call extracts structured data, one generates <strong>use-case-specific talking points</strong>. This is the bottleneck — two LLM calls processing up to 20k chars of context.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── ARCHITECTURE (visual) ── -->
+    <section class="arch-section" id="arch">
+      <h2 class="section-heading reveal">Architecture</h2>
+      <p class="arch-intro reveal">Built on LangGraph with a StateGraph orchestrator. Each phase fans out concurrently with fallback at every layer.</p>
+
+      <div class="pipeline-visual reveal">
+        <!-- Input -->
+        <div class="pv-row pv-input">
+          <div class="pv-node pv-node--input">
+            <span class="pv-label">POST /enrich</span>
+            <span class="pv-sub">name + company + use_case</span>
+          </div>
+        </div>
+        <div class="pv-connector"><div class="pv-line"></div></div>
+
+        <!-- Cache -->
+        <div class="pv-row pv-cache">
+          <div class="pv-node pv-node--cache">
+            <span class="pv-label">Semantic Cache</span>
+            <span class="pv-sub">Qdrant &middot; cosine &gt; 0.92 &rarr; instant return</span>
+          </div>
+        </div>
+        <div class="pv-connector"><div class="pv-line"></div><span class="pv-connector-label">cache miss</span></div>
+
+        <!-- Phase A -->
+        <div class="pv-phase reveal">
+          <div class="pv-phase-header"><span class="pv-phase-name pv-c-a">Phase A</span><span class="pv-phase-time">5&ndash;8s</span></div>
+          <div class="pv-row pv-row--4">
+            <div class="pv-node pv-node--a"><span class="pv-label">AI Planner</span><span class="pv-sub">Claude ~500 tokens</span></div>
+            <div class="pv-node pv-node--a"><span class="pv-label">GitHub</span><span class="pv-sub">API + weighted scoring</span></div>
+            <div class="pv-node pv-node--a"><span class="pv-label">News</span><span class="pv-sub">Serper news API</span></div>
+            <div class="pv-node pv-node--a"><span class="pv-label">Community</span><span class="pv-sub">HN Algolia + Reddit</span></div>
+          </div>
+          <span class="pv-parallel-badge">asyncio.gather()</span>
+        </div>
+        <div class="pv-connector"><div class="pv-line"></div><span class="pv-connector-label">queries + results</span></div>
+
+        <!-- Phase B -->
+        <div class="pv-phase reveal">
+          <div class="pv-phase-header"><span class="pv-phase-name pv-c-b">Phase B</span><span class="pv-phase-time">6&ndash;10s</span></div>
+          <div class="pv-row pv-row--2">
+            <div class="pv-node pv-node--b"><span class="pv-label">Serper Search</span><span class="pv-sub">up to 5 queries</span></div>
+            <div class="pv-node pv-node--b"><span class="pv-label">Playwright</span><span class="pv-sub">up to 3 URLs &middot; pooled browser</span></div>
+          </div>
+        </div>
+        <div class="pv-connector"><div class="pv-line"></div></div>
+
+        <!-- Phase B.5 -->
+        <div class="pv-phase reveal">
+          <div class="pv-phase-header"><span class="pv-phase-name pv-c-c">Phase B.5</span><span class="pv-phase-time">2&ndash;5s</span></div>
+          <div class="pv-waterfall">
+            <div class="pv-wf-node pv-wf--free">GitHub commits</div>
+            <div class="pv-wf-arrow">&rarr;</div>
+            <div class="pv-wf-node pv-wf--free">Regex scan</div>
+            <div class="pv-wf-arrow">&rarr;</div>
+            <div class="pv-wf-node pv-wf--free">SMTP verify</div>
+            <div class="pv-wf-arrow">&rarr;</div>
+            <div class="pv-wf-node pv-wf--paid">Prospeo <span class="pv-quota">75/mo</span></div>
+            <div class="pv-wf-arrow">&rarr;</div>
+            <div class="pv-wf-node pv-wf--paid">Hunter <span class="pv-quota">25/mo</span></div>
+          </div>
+          <div class="pv-waterfall-labels">
+            <span class="pv-wfl pv-wfl--free">free methods first</span>
+            <span class="pv-wfl pv-wfl--paid">paid fallback</span>
+          </div>
+        </div>
+        <div class="pv-connector"><div class="pv-line"></div></div>
+
+        <!-- Phase C -->
+        <div class="pv-phase reveal">
+          <div class="pv-phase-header"><span class="pv-phase-name pv-c-d">Phase C</span><span class="pv-phase-time">22&ndash;29s</span></div>
+          <div class="pv-row pv-row--1">
+            <div class="pv-node pv-node--d pv-node--wide">
+              <span class="pv-label">Claude Extractor</span>
+              <span class="pv-sub">~3000 tokens &middot; 20k context max &middot; retry at 30k on failure</span>
+              <div class="pv-outputs">
+                <span class="pv-output">Structured JSON</span>
+                <span class="pv-output">Talking points</span>
+                <span class="pv-output">Confidence scores</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pv-connector"><div class="pv-line"></div></div>
+
+        <!-- Output -->
+        <div class="pv-row pv-input">
+          <div class="pv-node pv-node--output">
+            <span class="pv-label">EnrichResponse</span>
+            <span class="pv-sub">profile + talking_points + metadata</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="decisions reveal">
+        <h3>Design decisions</h3>
+        <dl>
+          <dt>Parallel planner</dt>
+          <dd>The AI planner runs alongside deterministic tools. Its output only gates Phase B — cutting total latency ~40% vs plan-then-execute.</dd>
+          <dt>5-layer email waterfall</dt>
+          <dd>Three free methods exhaust before spending API credits. Prospeo (75/month) and Hunter (25/month) are last resort.</dd>
+          <dt>Semantic vector cache</dt>
+          <dd>Qdrant embeddings at 0.92 cosine threshold. Near-duplicate requests resolve in &lt;500ms instead of ~44 seconds.</dd>
+          <dt>Context truncation with retry</dt>
+          <dd>Extractor gets 20k chars max (3k per tool). If parsing fails, retry with 30k chars and 4.5k per tool.</dd>
+        </dl>
+      </div>
+
+      <div class="stack-inline reveal">
+        <span class="stack-label">Stack</span>
+        <span class="pill pill-main">Claude 3.5 Sonnet</span>
+        <span class="pill">LangGraph</span>
+        <span class="pill">FastAPI</span>
+        <span class="pill">Playwright</span>
+        <span class="pill">Qdrant</span>
+        <span class="pill">Serper</span>
+        <span class="pill">Prospeo</span>
+        <span class="pill">Hunter.io</span>
+        <span class="pill">Langfuse</span>
+      </div>
+    </section>
+
+    <!-- ── SAMPLE OUTPUT ── -->
+    <section class="output-section" id="output">
+      <h2 class="section-heading reveal">Sample output</h2>
+      <p class="section-sub reveal">Real result from the eval suite. Guillermo Rauch @ Vercel — 70.7s, 7 sources.</p>
+
+      <div class="terminal reveal">
+        <div class="term-bar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="term-title">POST /enrich &nbsp;&rarr;&nbsp; 200 OK &nbsp; 70.7s</span>
+        </div>
+<pre>{
+  <span class="k">"success"</span>: <span class="bool">true</span>,
+  <span class="k">"latency_ms"</span>: <span class="n">70700</span>,
+  <span class="k">"sources_searched"</span>: [<span class="s">"github"</span>, <span class="s">"web_search"</span>, <span class="s">"news"</span>, <span class="s">"community"</span>, <span class="s">"browser"</span>],
+  <span class="k">"profile"</span>: {
+    <span class="k">"name"</span>: <span class="s">"Guillermo Rauch"</span>,
+    <span class="k">"company"</span>: <span class="s">"Vercel"</span>,
+    <span class="k">"role"</span>: <span class="s">"CEO &amp; Founder"</span>,
+    <span class="k">"email"</span>: <span class="s">"guillermo.rauch@vercel.co"</span>,
+    <span class="k">"bio"</span>: <span class="s">"Creator of Next.js, Socket.io, and Mongoose. Founded Vercel..."</span>,
+    <span class="k">"skills"</span>: [<span class="s">"JavaScript"</span>, <span class="s">"TypeScript"</span>, <span class="s">"React"</span>, <span class="s">"Next.js"</span>, <span class="s">"Node.js"</span>],
+    <span class="k">"github"</span>: {
+      <span class="k">"username"</span>: <span class="s">"rauchg"</span>,
+      <span class="k">"public_repos"</span>: <span class="n">282</span>,
+      <span class="k">"followers"</span>: <span class="n">32400</span>,
+      <span class="k">"top_languages"</span>: [<span class="s">"JavaScript"</span>, <span class="s">"TypeScript"</span>],
+      <span class="k">"activity_level"</span>: <span class="s">"very_active"</span>
+    },
+    <span class="k">"confidence"</span>: { <span class="k">"name"</span>: <span class="n">0.99</span>, <span class="k">"email"</span>: <span class="n">0.85</span>, <span class="k">"github"</span>: <span class="n">0.99</span> }
+  },
+  <span class="k">"talking_points"</span>: [
+    <span class="s">"As the creator of Next.js, ask about the v15 App Router adoption curve."</span>,
+    <span class="s">"Vercel just launched v0 — shows their bet on AI-native dev tooling."</span>,
+    <span class="s">"His OSS journey (Socket.io &rarr; Next.js) shows a pattern of building at inflection points."</span>,
+    <span class="s">"Still ships code as CEO (282 repos, 32k followers) — rare at that scale."</span>
+  ]
+}</pre>
+      </div>
+
+      <div class="eval-bar reveal">
+        <h3>Eval results</h3>
+        <p class="section-sub">15 test cases — famous engineers, indie hackers, non-developers, fictional people, common-name disambiguation.</p>
+        <div class="eval-grid">
+          <div class="eval-item"><span class="eval-name">Guillermo Rauch <span class="eval-co">Vercel</span></span><span class="eval-score score-pass">100%</span><span class="eval-time">70.7s</span></div>
+          <div class="eval-item"><span class="eval-name">DHH <span class="eval-co">37signals</span></span><span class="eval-score score-pass">89%</span><span class="eval-time">52.0s</span></div>
+          <div class="eval-item"><span class="eval-name">Mitchell Hashimoto <span class="eval-co">Ghostty</span></span><span class="eval-score score-pass">100%</span><span class="eval-time">32.9s</span></div>
+          <div class="eval-item"><span class="eval-name">Satya Nadella <span class="eval-co">Microsoft</span></span><span class="eval-score score-pass">100%</span><span class="eval-time">38.9s</span></div>
+          <div class="eval-item"><span class="eval-name">Theo Browne <span class="eval-co">Ping.gg</span></span><span class="eval-score score-pass">100%</span><span class="eval-time">42.1s</span></div>
+          <div class="eval-item"><span class="eval-name">Julia Evans <span class="eval-co">Mess With DNS</span></span><span class="eval-score score-warn">86%</span><span class="eval-time">29.5s</span></div>
+          <div class="eval-item"><span class="eval-name">Pieter Levels <span class="eval-co">indie</span></span><span class="eval-score score-pass">100%</span><span class="eval-time">62.4s</span></div>
+          <div class="eval-item"><span class="eval-name">Alex Chen <span class="eval-co">Stripe</span></span><span class="eval-score score-pass">100%</span><span class="eval-time">100.4s</span></div>
+          <div class="eval-item"><span class="eval-name">Shola Akinlade <span class="eval-co">Paystack</span></span><span class="eval-score score-pass">100%</span><span class="eval-time">28.6s</span></div>
+          <div class="eval-item"><span class="eval-name">Fictional person <span class="eval-co">N/A</span></span><span class="eval-score score-pass">100%</span><span class="eval-time">18.9s</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── DEMO ── -->
+    <section class="demo-section" id="demo">
+      <h2 class="section-heading reveal">Try it yourself</h2>
+      <p class="demo-intro reveal">Enter a name and company. The full pipeline runs live.</p>
+
+      <form id="enrich-form" class="demo-form reveal">
+        <div class="form-row-2">
+          <div class="f-group">
+            <label for="input-name">Name</label>
+            <input type="text" id="input-name" placeholder="Guillermo Rauch" required autocomplete="off">
+          </div>
+          <div class="f-group">
+            <label for="input-company">Company</label>
+            <input type="text" id="input-company" placeholder="Vercel" autocomplete="off">
+          </div>
+        </div>
+        <div class="f-group">
+          <label for="input-api-key">API Key</label>
+          <input type="text" id="input-api-key" placeholder="sk-..." autocomplete="off">
         </div>
         <div class="form-actions">
-          <div class="toggle-group">
+          <div class="toggles">
             <button type="button" class="toggle-btn active" data-use-case="sales">Sales</button>
             <button type="button" class="toggle-btn" data-use-case="recruiting">Recruiting</button>
             <button type="button" class="toggle-btn" data-use-case="job_search">Job Search</button>
           </div>
-          <button type="submit" id="btn-submit" class="btn-primary">Enrich</button>
+          <button type="submit" id="btn-submit" class="btn-go">
+            <span class="btn-text">Enrich</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m0 0L9 4m4 4L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
+        <p class="form-hint">
+          <a href="#" id="try-example">Try: Guillermo Rauch @ Vercel</a>
+          <span class="hint-sep">&middot;</span>
+          Need a key? <a href="mailto:ashwinashig.27@gmail.com?subject=API%20Key%20Request">Email me</a> or <a href="https://www.linkedin.com/in/ashwin-shanmugasundaram/" target="_blank" rel="noopener">LinkedIn</a>
+        </p>
       </form>
-      <p class="example-link"><a href="#" id="try-example">Try an example: Guillermo Rauch @ Vercel</a></p>
-    </div>
-  </section>
 
-  <!-- ── Results ───────────────────────────────────────────────── -->
-  <section id="results" class="container hidden">
-    <!-- Loading -->
-    <div id="loading" class="loading-state hidden">
-      <div class="spinner" role="status" aria-label="Loading"></div>
-      <p id="loading-text">Researching...</p>
-    </div>
-
-    <!-- Error -->
-    <div id="error-box" class="error-box hidden">
-      <p id="error-message"></p>
-      <p id="error-countdown" class="hidden"></p>
-    </div>
-
-    <!-- Profile Card -->
-    <div id="profile-card" class="profile-card hidden">
-      <!-- Header -->
-      <div class="card-header">
-        <div>
-          <h2 id="profile-name" class="profile-name"></h2>
-          <p id="profile-role" class="profile-role"></p>
-          <p id="profile-location" class="profile-location"></p>
-        </div>
-        <div class="badges">
-          <span id="badge-latency" class="badge badge-latency"></span>
-          <span id="badge-sources" class="badge badge-muted"></span>
+      <div id="results" class="hidden">
+        <div id="loading" class="loading-state hidden"><div class="spinner"></div><p id="loading-text">Researching...</p></div>
+        <div id="error-box" class="error-box hidden"><p id="error-message"></p><p id="error-countdown" class="hidden"></p></div>
+        <div id="profile-card" class="profile-card hidden">
+          <div class="card-header"><div><h2 id="profile-name" class="profile-name"></h2><p id="profile-role" class="profile-role"></p><p id="profile-location" class="profile-location"></p></div><div class="badges"><span id="badge-latency" class="badge badge-latency"></span><span id="badge-sources" class="badge badge-muted"></span></div></div>
+          <div id="profile-links" class="profile-links hidden"><a id="link-github" href="#" target="_blank" rel="noopener" class="profile-link hidden">GitHub</a><a id="link-linkedin" href="#" target="_blank" rel="noopener" class="profile-link hidden">LinkedIn</a><a id="link-website" href="#" target="_blank" rel="noopener" class="profile-link hidden">Website</a><a id="link-twitter" href="#" target="_blank" rel="noopener" class="profile-link hidden">Twitter</a></div>
+          <div id="section-about" class="card-section hidden"><h3>About</h3><p id="about-bio"></p><div id="about-details" class="detail-grid"><div id="detail-education" class="hidden"><span class="label">Education</span><span id="education-value"></span></div><div id="detail-previous" class="hidden"><span class="label">Previous</span><span id="previous-value"></span></div></div></div>
+          <div id="section-email" class="card-section hidden"><h3>Email</h3><div class="email-row"><span id="email-value" class="email-text"></span><span id="email-confidence" class="badge"></span><button id="btn-copy-email" class="btn-icon" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div></div>
+          <div class="card-row"><div id="section-github" class="card-section card-half hidden"><h3>GitHub</h3><div class="github-stats"><div class="stat"><span id="gh-repos" class="stat-value">0</span><span class="stat-label">Repos</span></div><div class="stat"><span id="gh-followers" class="stat-value">0</span><span class="stat-label">Followers</span></div><div class="stat"><span id="gh-activity" class="stat-value">-</span><span class="stat-label">Activity</span></div></div><div id="gh-languages" class="tag-list"></div><a id="gh-link" href="#" target="_blank" rel="noopener" class="link">View profile</a></div><div id="section-skills" class="card-section card-half hidden"><h3>Skills</h3><div id="skills-list" class="tag-list"></div></div></div>
+          <div id="section-news" class="card-section hidden"><h3>Recent News</h3><ul id="news-list" class="news-list"></ul></div>
+          <div id="section-points" class="card-section hidden"><div class="section-header"><h3>Talking Points</h3><button id="btn-copy-points" class="btn-icon" title="Copy all"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div><ol id="points-list" class="points-list"></ol></div>
+          <div class="card-footer"><div id="confidence-scores" class="confidence-bar"></div><p id="sources-summary" class="text-muted"></p></div>
         </div>
       </div>
+    </section>
 
-      <!-- Links -->
-      <div id="profile-links" class="profile-links hidden">
-        <a id="link-github" href="#" target="_blank" rel="noopener" class="profile-link hidden">GitHub</a>
-        <a id="link-linkedin" href="#" target="_blank" rel="noopener" class="profile-link hidden">LinkedIn</a>
-        <a id="link-website" href="#" target="_blank" rel="noopener" class="profile-link hidden">Website</a>
-        <a id="link-twitter" href="#" target="_blank" rel="noopener" class="profile-link hidden">Twitter</a>
-      </div>
+  </main>
 
-      <!-- About -->
-      <div id="section-about" class="card-section hidden">
-        <h3>About</h3>
-        <p id="about-bio"></p>
-        <div id="about-details" class="detail-grid">
-          <div id="detail-education" class="hidden"><span class="label">Education</span><span id="education-value"></span></div>
-          <div id="detail-previous" class="hidden"><span class="label">Previous</span><span id="previous-value"></span></div>
-        </div>
-      </div>
-
-      <!-- Email -->
-      <div id="section-email" class="card-section hidden">
-        <h3>Email</h3>
-        <div class="email-row">
-          <span id="email-value" class="email-text"></span>
-          <span id="email-confidence" class="badge"></span>
-          <button id="btn-copy-email" class="btn-icon" title="Copy email" aria-label="Copy email">&#128203;</button>
-        </div>
-      </div>
-
-      <!-- GitHub + Skills -->
-      <div class="card-row">
-        <div id="section-github" class="card-section card-half hidden">
-          <h3>GitHub</h3>
-          <div class="github-stats">
-            <div class="stat"><span id="gh-repos" class="stat-value">0</span><span class="stat-label">Repos</span></div>
-            <div class="stat"><span id="gh-followers" class="stat-value">0</span><span class="stat-label">Followers</span></div>
-            <div class="stat"><span id="gh-activity" class="stat-value">-</span><span class="stat-label">Activity</span></div>
-          </div>
-          <div id="gh-languages" class="tag-list"></div>
-          <a id="gh-link" href="#" target="_blank" rel="noopener" class="link">View profile</a>
-        </div>
-
-        <div id="section-skills" class="card-section card-half hidden">
-          <h3>Skills</h3>
-          <div id="skills-list" class="tag-list"></div>
-        </div>
-      </div>
-
-      <!-- News -->
-      <div id="section-news" class="card-section hidden">
-        <h3>Recent News</h3>
-        <ul id="news-list" class="news-list"></ul>
-      </div>
-
-      <!-- Talking Points -->
-      <div id="section-points" class="card-section hidden">
-        <div class="section-header">
-          <h3>Talking Points</h3>
-          <button id="btn-copy-points" class="btn-icon" title="Copy all" aria-label="Copy talking points">&#128203;</button>
-        </div>
-        <ol id="points-list" class="points-list"></ol>
-      </div>
-
-      <!-- Confidence + Sources -->
-      <div class="card-footer">
-        <div id="confidence-scores" class="confidence-bar" role="list" aria-label="Confidence scores"></div>
-        <p id="sources-summary" class="text-muted"></p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── Architecture ──────────────────────────────────────────── -->
-  <section class="architecture container">
-    <h2 class="section-title">How It Works</h2>
-    <div class="pipeline">
-      <div class="pipeline-phase phase-a">
-        <div class="phase-label">Phase A</div>
-        <div class="phase-desc">Concurrent</div>
-        <div class="phase-tools">
-          <span class="tool-box">Planner</span>
-          <span class="tool-box">GitHub</span>
-          <span class="tool-box">News</span>
-          <span class="tool-box">Community</span>
-        </div>
-      </div>
-      <div class="arrow"></div>
-      <div class="pipeline-phase phase-b">
-        <div class="phase-label">Phase B</div>
-        <div class="phase-desc">Planner-dependent</div>
-        <div class="phase-tools">
-          <span class="tool-box">Web Search</span>
-          <span class="tool-box">Browser</span>
-        </div>
-      </div>
-      <div class="arrow"></div>
-      <div class="pipeline-phase phase-b5">
-        <div class="phase-label">Phase B.5</div>
-        <div class="phase-desc">Email Waterfall</div>
-        <div class="phase-tools">
-          <span class="tool-box">GitHub</span>
-          <span class="tool-box">Regex</span>
-          <span class="tool-box">SMTP</span>
-          <span class="tool-box">Prospeo</span>
-          <span class="tool-box">Hunter</span>
-        </div>
-      </div>
-      <div class="arrow"></div>
-      <div class="pipeline-phase phase-c">
-        <div class="phase-label">Phase C</div>
-        <div class="phase-desc">Extract + Synthesize</div>
-        <div class="phase-tools">
-          <span class="tool-box">Extractor</span>
-          <span class="tool-box">Talking Points</span>
-        </div>
-      </div>
-    </div>
-
-    <h2 class="section-title">Tech Stack</h2>
-    <div class="tech-badges">
-      <span class="tech-badge tech-claude">Claude</span>
-      <span class="tech-badge tech-langgraph">LangGraph</span>
-      <span class="tech-badge tech-fastapi">FastAPI</span>
-      <span class="tech-badge tech-playwright">Playwright</span>
-      <span class="tech-badge tech-serper">Serper</span>
-      <span class="tech-badge tech-github">GitHub API</span>
-      <span class="tech-badge tech-prospeo">Prospeo</span>
-      <span class="tech-badge tech-hunter">Hunter.io</span>
-      <span class="tech-badge tech-qdrant">Qdrant</span>
-    </div>
-  </section>
-
-  <footer class="container">
-    <p class="text-muted">Built with Claude &middot; 7 research tools &middot; 2 LLM calls per request</p>
+  <footer class="foot">
+    <span>Built by <a href="https://www.linkedin.com/in/ashwin-shanmugasundaram/" target="_blank" rel="noopener">Ashwin</a></span>
+    <span class="foot-sep">/</span>
+    <a href="https://github.com/Ashwinash27/lead-enrichment-agent" target="_blank" rel="noopener">GitHub</a>
+    <span class="foot-sep">/</span>
+    <a href="mailto:ashwinashig.27@gmail.com?subject=Lead%20Research%20Agent">Contact</a>
   </footer>
 
+  <script>
+    {
+      // Scroll reveal
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+      }, { threshold: 0.08, rootMargin: '0px 0px -60px 0px' });
+      document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+      // Spotlight cursor follow on cards
+      document.querySelectorAll('.card-spotlight').forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+          const r = card.getBoundingClientRect();
+          card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+          card.style.setProperty('--my', `${e.clientY - r.top}px`);
+        });
+      });
+
+      // Scroll progress bar
+      const prog = document.querySelector('.scroll-progress');
+      if (prog) {
+        const bar = document.createElement('div');
+        bar.className = 'scroll-bar';
+        prog.appendChild(bar);
+        window.addEventListener('scroll', () => {
+          const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+          bar.style.transform = `scaleX(${pct})`;
+        }, { passive: true });
+      }
+    }
+  </script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>

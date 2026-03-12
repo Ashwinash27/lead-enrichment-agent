@@ -4,10 +4,7 @@
   let selectedUseCase = "sales";
   let countdownTimer = null;
 
-  // ── Init ─────────────────────────────────────────────────────
-
   document.addEventListener("DOMContentLoaded", () => {
-    // Use case toggles
     document.querySelectorAll(".toggle-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".toggle-btn").forEach((b) => b.classList.remove("active"));
@@ -16,303 +13,206 @@
       });
     });
 
-    // Form submit
     document.getElementById("enrich-form").addEventListener("submit", handleSubmit);
 
-    // Try example link
-    const exampleLink = document.getElementById("try-example");
-    if (exampleLink) {
-      exampleLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        document.getElementById("input-name").value = "Guillermo Rauch";
-        document.getElementById("input-company").value = "Vercel";
-        document.getElementById("btn-submit").focus();
-      });
-    }
+    document.getElementById("try-example").addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById("input-name").value = "Guillermo Rauch";
+      document.getElementById("input-company").value = "Vercel";
+      document.getElementById("input-name").focus();
+    });
 
-    // Copy buttons
     document.getElementById("btn-copy-email").addEventListener("click", () => {
-      const email = document.getElementById("email-value").textContent;
-      if (email) copyToClipboard(email, "btn-copy-email");
+      const t = document.getElementById("email-value").textContent;
+      if (t) copy(t, "btn-copy-email");
     });
 
     document.getElementById("btn-copy-points").addEventListener("click", () => {
-      const points = Array.from(document.querySelectorAll("#points-list li"))
-        .map((li, i) => `${i + 1}. ${li.textContent}`)
-        .join("\n");
-      if (points) copyToClipboard(points, "btn-copy-points");
+      const pts = Array.from(document.querySelectorAll("#points-list li"))
+        .map((li, i) => `${i + 1}. ${li.textContent}`).join("\n");
+      if (pts) copy(pts, "btn-copy-points");
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach((a) => {
+      a.addEventListener("click", (e) => {
+        const target = document.querySelector(a.getAttribute("href"));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
     });
   });
 
-  // ── Submit ───────────────────────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────
 
   async function handleSubmit(e) {
     e.preventDefault();
-
     const name = document.getElementById("input-name").value.trim();
     const company = document.getElementById("input-company").value.trim();
+    const apiKey = document.getElementById("input-api-key").value.trim();
     if (!name) return;
 
-    // Reset UI
-    const results = document.getElementById("results");
-    results.classList.remove("hidden");
-    document.getElementById("loading").classList.remove("hidden");
+    resetCard();
+    show("results"); show("loading"); hide("error-box"); hide("profile-card");
     document.getElementById("loading-text").textContent = `Researching ${name}...`;
-    document.getElementById("error-box").classList.add("hidden");
-    document.getElementById("profile-card").classList.add("hidden");
     if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
 
     const btn = document.getElementById("btn-submit");
     btn.disabled = true;
-    btn.textContent = "Enriching...";
+    btn.querySelector(".btn-text").textContent = "Enriching...";
+
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey) headers["X-API-Key"] = apiKey;
 
     try {
       const resp = await fetch("/enrich", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers,
         body: JSON.stringify({ name, company, use_case: selectedUseCase }),
       });
 
-      if (resp.status === 429) {
-        const data = await resp.json().catch(() => ({}));
-        showRateLimit(data.retry_after || 60);
-        return;
-      }
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        showError(`Server error (${resp.status}): ${text}`.slice(0, 300));
-        return;
-      }
-
-      const data = await resp.json();
-      renderProfile(data);
+      if (resp.status === 429) { const d = await resp.json().catch(() => ({})); showRateLimit(d.retry_after || 60); return; }
+      if (resp.status === 401 || resp.status === 403) { showError("Invalid or missing API key."); return; }
+      if (!resp.ok) { const t = await resp.text().catch(() => ""); showError(`Error ${resp.status}: ${t}`.slice(0, 300)); return; }
+      renderProfile(await resp.json());
     } catch (err) {
       showError(`Connection failed: ${err.message}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = "Enrich";
-      document.getElementById("loading").classList.add("hidden");
+      btn.querySelector(".btn-text").textContent = "Enrich";
+      hide("loading");
     }
   }
 
-  // ── Render Profile ───────────────────────────────────────────
+  function show(id) { document.getElementById(id).classList.remove("hidden"); }
+  function hide(id) { document.getElementById(id).classList.add("hidden"); }
+
+  function resetCard() {
+    document.querySelectorAll(".badge-cached").forEach((el) => el.remove());
+    ["profile-links","section-about","section-email","section-github",
+     "section-skills","section-news","section-points",
+     "link-github","link-linkedin","link-website","link-twitter",
+     "detail-education","detail-previous"].forEach((id) => {
+      const el = document.getElementById(id); if (el) el.classList.add("hidden");
+    });
+    ["gh-languages","skills-list","news-list","points-list","confidence-scores"]
+      .forEach((id) => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
+  }
 
   function renderProfile(data) {
-    const card = document.getElementById("profile-card");
-    card.classList.remove("hidden");
+    show("profile-card");
+    const p = data.profile || {};
 
-    const profile = data.profile || {};
-
-    // Header
-    document.getElementById("profile-name").textContent = profile.name || "Unknown";
+    document.getElementById("profile-name").textContent = p.name || "Unknown";
     document.getElementById("profile-role").textContent =
-      profile.role ? `${profile.role}${profile.company ? " @ " + profile.company : ""}` : profile.company || "";
-    document.getElementById("profile-location").textContent = profile.location || "";
+      p.role ? `${p.role}${p.company ? " @ " + p.company : ""}` : p.company || "";
+    document.getElementById("profile-location").textContent = p.location || "";
 
-    // Badges
-    const latencyBadge = document.getElementById("badge-latency");
-    latencyBadge.textContent = `${(data.latency_ms / 1000).toFixed(1)}s`;
-    if (data.latency_ms < 500) {
-      latencyBadge.insertAdjacentHTML("afterend",
-        ' <span class="badge badge-cached">Cached</span>');
-    }
+    const lb = document.getElementById("badge-latency");
+    lb.textContent = `${(data.latency_ms / 1000).toFixed(1)}s`;
+    if (data.latency_ms < 500) lb.insertAdjacentHTML("afterend", ' <span class="badge badge-cached">Cached</span>');
     document.getElementById("badge-sources").textContent =
       `${data.sources_searched ? data.sources_searched.length : 0} sources`;
 
-    // Links
-    const linksEl = document.getElementById("profile-links");
     let hasLinks = false;
+    [["link-github", p.github?.url],
+     ["link-linkedin", p.linkedin_url],
+     ["link-website", p.website],
+     ["link-twitter", p.twitter_handle ? `https://twitter.com/${p.twitter_handle.replace("@","")}` : null]
+    ].forEach(([id, url]) => {
+      if (url) { const el = document.getElementById(id); el.href = url; el.classList.remove("hidden"); hasLinks = true; }
+    });
+    if (hasLinks) show("profile-links");
 
-    if (profile.github && profile.github.url) {
-      const el = document.getElementById("link-github");
-      el.href = profile.github.url;
-      el.classList.remove("hidden");
-      hasLinks = true;
-    }
-    if (profile.linkedin_url) {
-      const el = document.getElementById("link-linkedin");
-      el.href = profile.linkedin_url;
-      el.classList.remove("hidden");
-      hasLinks = true;
-    }
-    if (profile.website) {
-      const el = document.getElementById("link-website");
-      el.href = profile.website;
-      el.classList.remove("hidden");
-      hasLinks = true;
-    }
-    if (profile.twitter_handle) {
-      const el = document.getElementById("link-twitter");
-      el.href = `https://twitter.com/${profile.twitter_handle.replace("@", "")}`;
-      el.classList.remove("hidden");
-      hasLinks = true;
-    }
-    if (hasLinks) linksEl.classList.remove("hidden");
-
-    // About
-    if (profile.bio || profile.education?.length || profile.previous_companies?.length) {
-      document.getElementById("section-about").classList.remove("hidden");
-      document.getElementById("about-bio").textContent = profile.bio || "";
-
-      if (profile.education && profile.education.length) {
-        document.getElementById("detail-education").classList.remove("hidden");
-        document.getElementById("education-value").textContent = profile.education.join(", ");
-      }
-      if (profile.previous_companies && profile.previous_companies.length) {
-        document.getElementById("detail-previous").classList.remove("hidden");
-        document.getElementById("previous-value").textContent = profile.previous_companies.join(", ");
-      }
+    if (p.bio || p.education?.length || p.previous_companies?.length) {
+      show("section-about");
+      document.getElementById("about-bio").textContent = p.bio || "";
+      if (p.education?.length) { show("detail-education"); document.getElementById("education-value").textContent = p.education.join(", "); }
+      if (p.previous_companies?.length) { show("detail-previous"); document.getElementById("previous-value").textContent = p.previous_companies.join(", "); }
     }
 
-    // Email
-    if (profile.email) {
-      document.getElementById("section-email").classList.remove("hidden");
-      document.getElementById("email-value").textContent = profile.email;
-
-      const conf = profile.confidence ? profile.confidence.email || 0 : 0;
-      const confBadge = document.getElementById("email-confidence");
-      confBadge.textContent = `${Math.round(conf * 100)}%`;
-      confBadge.className = `badge ${conf >= 0.8 ? "badge-high" : conf >= 0.6 ? "badge-medium" : "badge-low"}`;
+    if (p.email) {
+      show("section-email");
+      document.getElementById("email-value").textContent = p.email;
+      const c = p.confidence?.email || 0;
+      const cb = document.getElementById("email-confidence");
+      cb.textContent = `${Math.round(c * 100)}%`;
+      cb.className = `badge ${c >= 0.8 ? "badge-high" : c >= 0.6 ? "badge-medium" : "badge-low"}`;
     }
 
-    // GitHub
-    if (profile.github && profile.github.username) {
-      document.getElementById("section-github").classList.remove("hidden");
-      document.getElementById("gh-repos").textContent = profile.github.public_repos || 0;
-      document.getElementById("gh-followers").textContent = profile.github.followers || 0;
-      document.getElementById("gh-activity").textContent =
-        (profile.github.activity_level || "-").replace(/_/g, " ");
-
-      const langContainer = document.getElementById("gh-languages");
-      langContainer.innerHTML = "";
-      (profile.github.top_languages || []).slice(0, 6).forEach((lang) => {
-        const span = document.createElement("span");
-        span.className = "tag";
-        span.textContent = lang;
-        langContainer.appendChild(span);
+    if (p.github?.username) {
+      show("section-github");
+      document.getElementById("gh-repos").textContent = p.github.public_repos || 0;
+      document.getElementById("gh-followers").textContent = p.github.followers || 0;
+      document.getElementById("gh-activity").textContent = (p.github.activity_level || "-").replace(/_/g, " ");
+      const lc = document.getElementById("gh-languages");
+      (p.github.top_languages || []).slice(0, 6).forEach((l) => {
+        const s = document.createElement("span"); s.className = "tag"; s.textContent = l; lc.appendChild(s);
       });
-
-      if (profile.github.url) {
-        document.getElementById("gh-link").href = profile.github.url;
-      }
+      if (p.github.url) document.getElementById("gh-link").href = p.github.url;
     }
 
-    // Skills
-    if (profile.skills && profile.skills.length) {
-      document.getElementById("section-skills").classList.remove("hidden");
-      const skillsList = document.getElementById("skills-list");
-      skillsList.innerHTML = "";
-      profile.skills.forEach((skill) => {
-        const span = document.createElement("span");
-        span.className = "tag";
-        span.textContent = skill;
-        skillsList.appendChild(span);
-      });
+    if (p.skills?.length) {
+      show("section-skills");
+      const sl = document.getElementById("skills-list");
+      p.skills.forEach((s) => { const sp = document.createElement("span"); sp.className = "tag"; sp.textContent = s; sl.appendChild(sp); });
     }
 
-    // News
-    if (profile.recent_news && profile.recent_news.length) {
-      document.getElementById("section-news").classList.remove("hidden");
-      const newsList = document.getElementById("news-list");
-      newsList.innerHTML = "";
-      profile.recent_news.slice(0, 5).forEach((item) => {
+    if (p.recent_news?.length) {
+      show("section-news");
+      const nl = document.getElementById("news-list");
+      p.recent_news.slice(0, 5).forEach((item) => {
         const li = document.createElement("li");
-        const text = typeof item === "string" ? item : JSON.stringify(item);
-        // Try to extract URL
-        const urlMatch = text.match(/(https?:\/\/\S+)/);
-        if (urlMatch) {
-          const a = document.createElement("a");
-          a.href = urlMatch[1];
-          a.target = "_blank";
-          a.rel = "noopener";
-          a.textContent = text.replace(urlMatch[1], "").trim() || urlMatch[1];
-          li.appendChild(a);
-        } else {
-          li.textContent = text;
-        }
-        newsList.appendChild(li);
+        const txt = typeof item === "string" ? item : JSON.stringify(item);
+        const m = txt.match(/(https?:\/\/\S+)/);
+        if (m) { const a = document.createElement("a"); a.href = m[1]; a.target = "_blank"; a.rel = "noopener"; a.textContent = txt.replace(m[1], "").trim() || m[1]; li.appendChild(a); }
+        else li.textContent = txt;
+        nl.appendChild(li);
       });
     }
 
-    // Talking Points
-    if (data.talking_points && data.talking_points.length) {
-      document.getElementById("section-points").classList.remove("hidden");
-      const pointsList = document.getElementById("points-list");
-      pointsList.innerHTML = "";
-      data.talking_points.forEach((point) => {
-        const li = document.createElement("li");
-        li.textContent = point;
-        pointsList.appendChild(li);
+    if (data.talking_points?.length) {
+      show("section-points");
+      const pl = document.getElementById("points-list");
+      data.talking_points.forEach((pt) => { const li = document.createElement("li"); li.textContent = pt; pl.appendChild(li); });
+    }
+
+    if (p.confidence) {
+      const cb = document.getElementById("confidence-scores");
+      ["name","company","role","email","bio","github"].forEach((f) => {
+        const v = p.confidence[f];
+        if (v > 0) { const s = document.createElement("span"); s.className = "conf-item"; s.innerHTML = `${f}: <span class="conf-score">${Math.round(v*100)}%</span>`; cb.appendChild(s); }
       });
     }
 
-    // Confidence scores
-    if (profile.confidence) {
-      const confBar = document.getElementById("confidence-scores");
-      confBar.innerHTML = "";
-      const fields = ["name", "company", "role", "email", "bio", "github"];
-      fields.forEach((field) => {
-        const val = profile.confidence[field];
-        if (val > 0) {
-          const span = document.createElement("span");
-          span.className = "conf-item";
-          span.innerHTML = `${field}: <span class="conf-score">${Math.round(val * 100)}%</span>`;
-          confBar.appendChild(span);
-        }
-      });
-    }
-
-    // Sources summary
     if (data.sources_searched) {
-      const urls = profile.sources ? profile.sources.length : 0;
-      document.getElementById("sources-summary").textContent =
-        `${data.sources_searched.length} tools searched, ${urls} source URLs`;
+      const urls = p.sources ? p.sources.length : 0;
+      document.getElementById("sources-summary").textContent = `${data.sources_searched.length} tools, ${urls} URLs`;
     }
+
+    document.getElementById("profile-card").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // ── Error States ─────────────────────────────────────────────
+  function showError(msg) { hide("loading"); show("error-box"); document.getElementById("error-message").textContent = msg; }
 
-  function showError(message) {
-    document.getElementById("loading").classList.add("hidden");
-    const box = document.getElementById("error-box");
-    box.classList.remove("hidden");
-    document.getElementById("error-message").textContent = message;
-  }
-
-  function showRateLimit(retryAfter) {
-    document.getElementById("loading").classList.add("hidden");
-    const box = document.getElementById("error-box");
-    box.classList.remove("hidden");
+  function showRateLimit(sec) {
+    hide("loading"); show("error-box");
     document.getElementById("error-message").textContent = "Rate limit exceeded.";
-
-    const countdown = document.getElementById("error-countdown");
-    countdown.classList.remove("hidden");
-    let remaining = retryAfter;
-    countdown.textContent = `Try again in ${remaining}s`;
-
+    const cd = document.getElementById("error-countdown"); cd.classList.remove("hidden");
+    let r = sec; cd.textContent = `Try again in ${r}s`;
     countdownTimer = setInterval(() => {
-      remaining--;
-      if (remaining <= 0) {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-        box.classList.add("hidden");
-        countdown.classList.add("hidden");
-      } else {
-        countdown.textContent = `Try again in ${remaining}s`;
-      }
+      if (--r <= 0) { clearInterval(countdownTimer); countdownTimer = null; hide("error-box"); cd.classList.add("hidden"); }
+      else cd.textContent = `Try again in ${r}s`;
     }, 1000);
   }
 
-  // ── Utilities ────────────────────────────────────────────────
-
-  async function copyToClipboard(text, buttonId) {
+  async function copy(text, btnId) {
     try {
       await navigator.clipboard.writeText(text);
-      const btn = document.getElementById(buttonId);
-      const original = btn.innerHTML;
-      btn.innerHTML = "&#10003;";
-      setTimeout(() => { btn.innerHTML = original; }, 1500);
+      const b = document.getElementById(btnId), orig = b.innerHTML;
+      b.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => b.innerHTML = orig, 1500);
     } catch (_) {}
   }
 })();
