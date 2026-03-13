@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/style.css?v=5">
+  <link rel="stylesheet" href="/static/css/style.css?v=6">
 </head>
 <body>
 
@@ -22,7 +22,6 @@
       <a href="#how">Process</a>
       <a href="#arch">Architecture</a>
       <a href="#output">Output</a>
-      <a href="#demo">Demo</a>
       <a href="https://github.com/Ashwinash27/lead-enrichment-agent" target="_blank" rel="noopener">GitHub</a>
     </nav>
   </header>
@@ -41,8 +40,8 @@
         </div>
         <p class="hero-desc reveal-hero" style="--d:1.5">Feed it a name and company. It fans out across 7 sources, runs a 5-layer email waterfall, and returns structured JSON with talking points. Two LLM calls. ~44s average.</p>
         <div class="hero-actions reveal-hero" style="--d:2.5">
-          <a href="#demo" class="btn-primary">
-            Try the demo
+          <a href="https://github.com/Ashwinash27/lead-enrichment-agent" target="_blank" rel="noopener" class="btn-primary">
+            View on GitHub
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m0 0L9 4m4 4L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
           <a href="https://github.com/Ashwinash27/lead-enrichment-agent" target="_blank" rel="noopener" class="btn-secondary">
@@ -310,59 +309,6 @@
       </div>
     </section>
 
-    <!-- ── DEMO ── -->
-    <section class="demo-section" id="demo">
-      <h2 class="section-heading reveal">Try it yourself</h2>
-      <p class="demo-intro reveal">Enter a name and company. The full pipeline runs live.</p>
-
-      <form id="enrich-form" class="demo-form reveal">
-        <div class="form-row-2">
-          <div class="f-group">
-            <label for="input-name">Name</label>
-            <input type="text" id="input-name" placeholder="Guillermo Rauch" required autocomplete="off">
-          </div>
-          <div class="f-group">
-            <label for="input-company">Company</label>
-            <input type="text" id="input-company" placeholder="Vercel" autocomplete="off">
-          </div>
-        </div>
-        <div class="f-group">
-          <label for="input-api-key">API Key</label>
-          <input type="text" id="input-api-key" placeholder="sk-..." autocomplete="off">
-        </div>
-        <div class="form-actions">
-          <div class="toggles">
-            <button type="button" class="toggle-btn active" data-use-case="sales">Sales</button>
-            <button type="button" class="toggle-btn" data-use-case="recruiting">Recruiting</button>
-            <button type="button" class="toggle-btn" data-use-case="job_search">Job Search</button>
-          </div>
-          <button type="submit" id="btn-submit" class="btn-go">
-            <span class="btn-text">Enrich</span>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m0 0L9 4m4 4L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        </div>
-        <p class="form-hint">
-          <a href="#" id="try-example">Try: Guillermo Rauch @ Vercel</a>
-          <span class="hint-sep">&middot;</span>
-          Need a key? <a href="mailto:ashwinashig.27@gmail.com?subject=API%20Key%20Request">Email me</a> or <a href="https://www.linkedin.com/in/ashwin-shanmugasundaram/" target="_blank" rel="noopener">LinkedIn</a>
-        </p>
-      </form>
-
-      <div id="results" class="hidden">
-        <div id="loading" class="loading-state hidden"><div class="spinner"></div><p id="loading-text">Researching...</p></div>
-        <div id="error-box" class="error-box hidden"><p id="error-message"></p><p id="error-countdown" class="hidden"></p></div>
-        <div id="profile-card" class="profile-card hidden">
-          <div class="card-header"><div><h2 id="profile-name" class="profile-name"></h2><p id="profile-role" class="profile-role"></p><p id="profile-location" class="profile-location"></p></div><div class="badges"><span id="badge-latency" class="badge badge-latency"></span><span id="badge-sources" class="badge badge-muted"></span></div></div>
-          <div id="profile-links" class="profile-links hidden"><a id="link-github" href="#" target="_blank" rel="noopener" class="profile-link hidden">GitHub</a><a id="link-linkedin" href="#" target="_blank" rel="noopener" class="profile-link hidden">LinkedIn</a><a id="link-website" href="#" target="_blank" rel="noopener" class="profile-link hidden">Website</a><a id="link-twitter" href="#" target="_blank" rel="noopener" class="profile-link hidden">Twitter</a></div>
-          <div id="section-about" class="card-section hidden"><h3>About</h3><p id="about-bio"></p><div id="about-details" class="detail-grid"><div id="detail-education" class="hidden"><span class="label">Education</span><span id="education-value"></span></div><div id="detail-previous" class="hidden"><span class="label">Previous</span><span id="previous-value"></span></div></div></div>
-          <div id="section-email" class="card-section hidden"><h3>Email</h3><div class="email-row"><span id="email-value" class="email-text"></span><span id="email-confidence" class="badge"></span><button id="btn-copy-email" class="btn-icon" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div></div>
-          <div class="card-row"><div id="section-github" class="card-section card-half hidden"><h3>GitHub</h3><div class="github-stats"><div class="stat"><span id="gh-repos" class="stat-value">0</span><span class="stat-label">Repos</span></div><div class="stat"><span id="gh-followers" class="stat-value">0</span><span class="stat-label">Followers</span></div><div class="stat"><span id="gh-activity" class="stat-value">-</span><span class="stat-label">Activity</span></div></div><div id="gh-languages" class="tag-list"></div><a id="gh-link" href="#" target="_blank" rel="noopener" class="link">View profile</a></div><div id="section-skills" class="card-section card-half hidden"><h3>Skills</h3><div id="skills-list" class="tag-list"></div></div></div>
-          <div id="section-news" class="card-section hidden"><h3>Recent News</h3><ul id="news-list" class="news-list"></ul></div>
-          <div id="section-points" class="card-section hidden"><div class="section-header"><h3>Talking Points</h3><button id="btn-copy-points" class="btn-icon" title="Copy all"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div><ol id="points-list" class="points-list"></ol></div>
-          <div class="card-footer"><div id="confidence-scores" class="confidence-bar"></div><p id="sources-summary" class="text-muted"></p></div>
-        </div>
-      </div>
-    </section>
 
   </main>
 
@@ -404,6 +350,5 @@
       }
     }
   </script>
-  <script src="/static/js/app.js"></script>
 </body>
 </html>
